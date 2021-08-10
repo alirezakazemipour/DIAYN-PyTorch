@@ -106,12 +106,13 @@ if TRAIN:
         while not done:
             action = agent.choose_action(state)
             next_state, reward, done, _ = env.step(action)
+            next_state = concat_state_latent(next_state, z, num_skills)
             agent.store(state, z, done, action, next_state)
             value_loss, q_loss, policy_loss = agent.train()
             if episode % 250 == 0:
                 agent.save_weights()
             episode_reward += reward
-            state = concat_state_latent(next_state, z, num_skills)
+            state = next_state
         log(episode, start_time, episode_reward, value_loss, q_loss, policy_loss, len(agent.memory))
 
 else:

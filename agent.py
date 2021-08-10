@@ -32,15 +32,19 @@ class SAC:
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        self.policy_network = PolicyNetwork(n_states=self.n_states, n_actions=self.n_actions,
+        self.policy_network = PolicyNetwork(n_states=self.n_states + self.n_skills,
+                                            n_actions=self.n_actions,
                                             action_bounds=self.action_bounds).to(self.device)
-        self.q_value_network1 = QvalueNetwork(n_states=self.n_states, n_actions=self.n_actions).to(self.device)
-        self.q_value_network2 = QvalueNetwork(n_states=self.n_states, n_actions=self.n_actions).to(self.device)
-        self.value_network = ValueNetwork(n_states=self.n_states).to(self.device)
-        self.value_target_network = ValueNetwork(n_states=self.n_states).to(self.device)
+        self.q_value_network1 = QvalueNetwork(n_states=self.n_states + self.n_skills,
+                                              n_actions=self.n_actions).to(self.device)
+        self.q_value_network2 = QvalueNetwork(n_states=self.n_states + self.n_skills,
+                                              n_actions=self.n_actions).to(self.device)
+        self.value_network = ValueNetwork(n_states=self.n_states + self.n_skills).to(self.device)
+        self.value_target_network = ValueNetwork(n_states=self.n_states + self.n_skills).to(self.device)
         self.value_target_network.load_state_dict(self.value_network.state_dict())
         self.value_target_network.eval()
-        self.discriminator = Discriminator(n_states=self.n_states, n_skills=self.n_skills)
+        self.discriminator = Discriminator(n_states=self.n_states + self.n_skills,
+                                           n_skills=self.n_skills).to(self.device)
 
         self.value_loss = torch.nn.MSELoss()
         self.q_value_loss = torch.nn.MSELoss()
@@ -54,20 +58,20 @@ class SAC:
 
     def store(self, state, z, done, action, next_state):
         state = from_numpy(state).float().to("cpu")
-        reward = torch.Tensor([z]).to("cpu")
+        z = torch.Tensor([z]).to("cpu")
         done = torch.Tensor([done]).to("cpu")
         action = torch.Tensor([action]).to("cpu")
         next_state = from_numpy(next_state).float().to("cpu")
-        self.memory.add(state, reward, done, action, next_state)
+        self.memory.add(state, z, done, action, next_state)
 
     def unpack(self, batch):
         batch = Transition(*zip(*batch))
 
-        states = torch.cat(batch.state).view(self.batch_size, self.n_states).to(self.device)
+        states = torch.cat(batch.state).view(self.batch_size, self.n_states + self.n_skills).to(self.device)
         zs = torch.cat(batch.z).view(self.batch_size, 1).to(self.device)
         dones = torch.cat(batch.done).view(self.batch_size, 1).to(self.device)
         actions = torch.cat(batch.action).view(-1, self.n_actions).to(self.device)
-        next_states = torch.cat(batch.next_state).view(self.batch_size, self.n_states).to(self.device)
+        next_states = torch.cat(batch.next_state).view(self.batch_size, self.n_states + self.n_skills).to(self.device)
 
         return states, zs, dones, actions, next_states
 
@@ -89,7 +93,7 @@ class SAC:
             value_loss = self.value_loss(value, target_value)
 
             discriminator_dist = self.discriminator(states)
-            rewards = discriminator_dist.log_probs(zs) - torch.log(zs)
+            rewards = discriminator_dist.log_prob(zs.squeeze(-1)).view(-1, 1) - torch.log(zs + 1e-6)
             # Calculating the Q-Value target
             with torch.no_grad():
                 target_q = self.reward_scale * rewards + \
@@ -100,8 +104,7 @@ class SAC:
             q2_loss = self.q_value_loss(q2, target_q)
 
             policy_loss = (self.alpha * log_probs - q).mean()
-
-            discriminator_loss = self.cross_ent_loss(discriminator_dist.logits, zs)
+            discriminator_loss = self.cross_ent_loss(discriminator_dist.logits, zs.long().squeeze(-1))
             
             self.policy_opt.zero_grad()
             policy_loss.backward()
