@@ -2,7 +2,7 @@ import random
 from collections import namedtuple
 
 Transition = namedtuple('Transition',
-                        ('state', 'reward', 'done', 'action', 'next_state'))
+                        ('state', 'z', 'done', 'action', 'next_state'))
 
 
 class Memory:

@@ -1,17 +1,26 @@
 import numpy as np
-from model import PolicyNetwork, QvalueNetwork, ValueNetwork
+from model import PolicyNetwork, QvalueNetwork, ValueNetwork, Discriminator
 import torch
 from replay_memory import Memory, Transition
 from torch import from_numpy
 from torch.optim.adam import Adam
 
-
 class SAC:
-    def __init__(self, env_name, n_states, n_actions, memory_size, batch_size, gamma, alpha, lr, action_bounds,
+    def __init__(self, env_name,
+                 n_states,
+                 n_actions,
+                 n_skills,
+                 memory_size,
+                 batch_size,
+                 gamma, alpha,
+                 lr,
+                 action_bounds,
                  reward_scale):
+
         self.env_name = env_name
         self.n_states = n_states
         self.n_actions = n_actions
+        self.n_skills = n_skills
         self.memory_size = memory_size
         self.batch_size = batch_size
         self.gamma = gamma
@@ -31,18 +40,21 @@ class SAC:
         self.value_target_network = ValueNetwork(n_states=self.n_states).to(self.device)
         self.value_target_network.load_state_dict(self.value_network.state_dict())
         self.value_target_network.eval()
+        self.discriminator = Discriminator(n_states=self.n_states, n_skills=self.n_skills)
 
         self.value_loss = torch.nn.MSELoss()
         self.q_value_loss = torch.nn.MSELoss()
+        self.cross_ent_loss = torch.nn.CrossEntropyLoss()
 
         self.value_opt = Adam(self.value_network.parameters(), lr=self.lr)
         self.q_value1_opt = Adam(self.q_value_network1.parameters(), lr=self.lr)
         self.q_value2_opt = Adam(self.q_value_network2.parameters(), lr=self.lr)
         self.policy_opt = Adam(self.policy_network.parameters(), lr=self.lr)
+        self.discriminator_opt = Adam(self.discriminator.parameters(), lr=self.lr)
 
-    def store(self, state, reward, done, action, next_state):
+    def store(self, state, z, done, action, next_state):
         state = from_numpy(state).float().to("cpu")
-        reward = torch.Tensor([reward]).to("cpu")
+        reward = torch.Tensor([z]).to("cpu")
         done = torch.Tensor([done]).to("cpu")
         action = torch.Tensor([action]).to("cpu")
         next_state = from_numpy(next_state).float().to("cpu")
@@ -52,19 +64,19 @@ class SAC:
         batch = Transition(*zip(*batch))
 
         states = torch.cat(batch.state).view(self.batch_size, self.n_states).to(self.device)
-        rewards = torch.cat(batch.reward).view(self.batch_size, 1).to(self.device)
+        zs = torch.cat(batch.z).view(self.batch_size, 1).to(self.device)
         dones = torch.cat(batch.done).view(self.batch_size, 1).to(self.device)
         actions = torch.cat(batch.action).view(-1, self.n_actions).to(self.device)
         next_states = torch.cat(batch.next_state).view(self.batch_size, self.n_states).to(self.device)
 
-        return states, rewards, dones, actions, next_states
+        return states, zs, dones, actions, next_states
 
     def train(self):
         if len(self.memory) < self.batch_size:
             return 0, 0, 0
         else:
             batch = self.memory.sample(self.batch_size)
-            states, rewards, dones, actions, next_states = self.unpack(batch)
+            states, zs, dones, actions, next_states = self.unpack(batch)
 
             # Calculating the value target
             reparam_actions, log_probs = self.policy_network.sample_or_likelihood(states)
@@ -76,6 +88,8 @@ class SAC:
             value = self.value_network(states)
             value_loss = self.value_loss(value, target_value)
 
+            discriminator_dist = self.discriminator(states)
+            rewards = discriminator_dist.log_probs(zs) - torch.log(zs)
             # Calculating the Q-Value target
             with torch.no_grad():
                 target_q = self.reward_scale * rewards + \
@@ -86,6 +100,8 @@ class SAC:
             q2_loss = self.q_value_loss(q2, target_q)
 
             policy_loss = (self.alpha * log_probs - q).mean()
+
+            discriminator_loss = self.cross_ent_loss(discriminator_dist.logits, zs)
             
             self.policy_opt.zero_grad()
             policy_loss.backward()
@@ -103,6 +119,9 @@ class SAC:
             q2_loss.backward()
             self.q_value2_opt.step()
 
+            self.discriminator_opt.zero_grad()
+            discriminator_loss.backward()
+            self.discriminator_opt.step()
 
             self.soft_update_target_network(self.value_network, self.value_target_network)
 

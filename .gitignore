@@ -130,5 +130,6 @@ dmypy.json
 
 .idea/
 *.png
-Logs/
+*/logs/
 *.pth
+events.*

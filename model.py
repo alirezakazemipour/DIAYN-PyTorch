@@ -1,7 +1,8 @@
+from abc import ABC
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch.distributions import Normal
+from torch.distributions import Normal, Categorical
 
 
 def init_weight(layer, initializer="he normal"):
@@ -11,7 +12,30 @@ def init_weight(layer, initializer="he normal"):
         nn.init.kaiming_normal_(layer.weight)
 
 
-class ValueNetwork(nn.Module):
+class Discriminator(nn.Module, ABC):
+    def __init__(self, n_states, n_skills, n_hidden_filters=256):
+        super(Discriminator, self).__init__()
+        self.n_states = n_states
+        self.n_skills = n_skills
+        self.n_hidden_filters = n_hidden_filters
+
+        self.hidden1 = nn.Linear(in_features=self.n_states, out_features=self.n_hidden_filters)
+        init_weight(self.hidden1)
+        self.hidden1.bias.data.zero_()
+        self.hidden2 = nn.Linear(in_features=self.n_hidden_filters, out_features=self.n_hidden_filters)
+        init_weight(self.hidden2)
+        self.hidden2.bias.data.zero_()
+        self.q = nn.Linear(in_features=self.n_hidden_filters, out_features=self.n_skills)
+        init_weight(self.q, initializer="xavier uniform")
+        self.q.bias.data.zero_()
+
+    def forward(self, states):
+        x = F.relu(self.hidden1(states))
+        x = F.relu(self.hidden2(x))
+        return Categorical(logits=self.q(x))
+
+
+class ValueNetwork(nn.Module, ABC):
     def __init__(self, n_states, n_hidden_filters=256):
         super(ValueNetwork, self).__init__()
         self.n_states = n_states
@@ -33,7 +57,7 @@ class ValueNetwork(nn.Module):
         return self.value(x)
 
 
-class QvalueNetwork(nn.Module):
+class QvalueNetwork(nn.Module, ABC):
     def __init__(self, n_states, n_actions, n_hidden_filters=256):
         super(QvalueNetwork, self).__init__()
         self.n_states = n_states
@@ -57,7 +81,7 @@ class QvalueNetwork(nn.Module):
         return self.q_value(x)
 
 
-class PolicyNetwork(nn.Module):
+class PolicyNetwork(nn.Module, ABC):
     def __init__(self, n_states, n_actions, action_bounds, n_hidden_filters=256):
         super(PolicyNetwork, self).__init__()
         self.n_states = n_states

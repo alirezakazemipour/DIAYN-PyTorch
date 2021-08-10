@@ -2,15 +2,17 @@ import gym
 from agent import SAC
 import time
 import psutil
-import mujoco_py
 from torch.utils.tensorboard import SummaryWriter
 from play import Play
 import os
 import datetime
+import numpy as np
 
-ENV_NAME = "Hopper-v2"
+# TODO Set Seed!!!
+
+ENV_NAME = "Pendulum-v0"
 test_env = gym.make(ENV_NAME)
-TRAIN = False
+TRAIN = True
 
 if not os.path.exists(ENV_NAME):
     os.mkdir(ENV_NAME)
@@ -19,19 +21,30 @@ n_states = test_env.observation_space.shape[0]
 n_actions = test_env.action_space.shape[0]
 action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
 
-MAX_EPISODES = 20000
+MAX_EPISODES = 1000
 memory_size = 1e+6
 batch_size = 256
 gamma = 0.99
-alpha = 1
+alpha = 0.1
 lr = 3e-4
+num_skills = 5
+
+p_z = np.full(num_skills, 1 / num_skills)
 if ENV_NAME == "Humanoid-v2":
     reward_scale = 20
+elif ENV_NAME == "Pendulum-v0":
+    reward_scale = 1
 else:
     reward_scale = 5
 
 to_gb = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
 global_running_reward = 0
+
+
+def concat_state_latent(s, z_, n):
+    z_one_hot = np.zeros(n)
+    z_one_hot[z_] = 1
+    return np.concatenate([s, z_one_hot])
 
 
 def log(episode, start_time, episode_reward, value_loss, q_loss, policy_loss, memory_length):
@@ -43,7 +56,7 @@ def log(episode, start_time, episode_reward, value_loss, q_loss, policy_loss, me
 
     ram = psutil.virtual_memory()
 
-    if episode % 400 == 0:
+    if episode % 1 == 0:
         print(f"EP:{episode}| "
               f"EP_r:{episode_reward:3.3f}| "
               f"EP_running_reward:{global_running_reward:3.3f}| "
@@ -55,7 +68,6 @@ def log(episode, start_time, episode_reward, value_loss, q_loss, policy_loss, me
               f"{to_gb(ram.used):.1f}/{to_gb(ram.total):.1f} GB RAM| "
               f'Time:{datetime.datetime.now().strftime("%H:%M:%S")}')
         agent.save_weights()
-
 
     with SummaryWriter(ENV_NAME + "/logs/") as writer:
         writer.add_scalar("Value Loss", value_loss, episode)
@@ -74,6 +86,7 @@ if __name__ == "__main__":
     agent = SAC(env_name=ENV_NAME,
                 n_states=n_states,
                 n_actions=n_actions,
+                n_skills=num_skills,
                 memory_size=memory_size,
                 batch_size=batch_size,
                 gamma=gamma,
@@ -84,19 +97,21 @@ if __name__ == "__main__":
 
 if TRAIN:
     for episode in range(1, MAX_EPISODES + 1):
+        z = np.random.choice(num_skills, p=p_z)
         state = env.reset()
+        state = concat_state_latent(state, z, num_skills)
         episode_reward = 0
         done = 0
         start_time = time.time()
         while not done:
             action = agent.choose_action(state)
             next_state, reward, done, _ = env.step(action)
-            agent.store(state, reward, done, action, next_state)
+            agent.store(state, z, done, action, next_state)
             value_loss, q_loss, policy_loss = agent.train()
             if episode % 250 == 0:
                 agent.save_weights()
             episode_reward += reward
-            state = next_state
+            state = concat_state_latent(next_state, z, num_skills)
         log(episode, start_time, episode_reward, value_loss, q_loss, policy_loss, len(agent.memory))
 
 else:
