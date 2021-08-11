@@ -4,6 +4,7 @@ import torch
 from replay_memory import Memory, Transition
 from torch import from_numpy
 from torch.optim.adam import Adam
+from torch.nn.functional import softmax
 
 torch.manual_seed(123)
 
@@ -82,7 +83,7 @@ class SAC:
 
     def train(self):
         if len(self.memory) < self.batch_size:
-            return
+            return 0
         else:
             batch = self.memory.sample(self.batch_size)
             states, zs, dones, actions, next_states = self.unpack(batch)
@@ -98,11 +99,12 @@ class SAC:
             value = self.value_network(states)
             value_loss = self.value_loss(value, target_value)
 
-            discriminator_dist, logits = self.discriminator(next_states)
+            logits = self.discriminator(next_states)
             z_one_hot = torch.zeros((self.batch_size, self.n_skills), device=self.device)
             z_one_hot[:, zs.long()] = 1
             p_z = torch.sum(z_one_hot * p_z, dim=-1, keepdim=True)
-            rewards = discriminator_dist.log_prob(zs.squeeze(-1)).view(-1, 1) - torch.log(p_z + 1e-6)
+            log_q_z_ns = softmax(logits, dim=-1).log()
+            rewards = log_q_z_ns.gather(-1, zs.long()) - torch.log(p_z + 1e-6)
             # Calculating the Q-Value target
             with torch.no_grad():
                 target_q = self.reward_scale * rewards + \
@@ -137,7 +139,7 @@ class SAC:
 
             self.soft_update_target_network(self.value_network, self.value_target_network)
 
-            return
+            return discriminator_loss.item()
 
     def choose_action(self, states):
         states = np.expand_dims(states, axis=0)

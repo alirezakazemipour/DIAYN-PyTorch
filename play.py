@@ -2,14 +2,15 @@ import torch
 from torch import device
 import gym
 import time
-from mujoco_py.generated import const
-from mujoco_py import GlfwContext
+# from mujoco_py.generated import const
+# from mujoco_py import GlfwContext
 import cv2
-GlfwContext(offscreen=True)
+# GlfwContext(offscreen=True)
+import numpy as np
 
 
 class Play:
-    def __init__(self, env, agent, max_episode=1):
+    def __init__(self, env, agent, max_episode=3):
         self.env = env
         self.max_episode = max_episode
         self.agent = agent
@@ -19,19 +20,27 @@ class Play:
         self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
         self.VideoWriter = cv2.VideoWriter("Humanoid" + ".avi", self.fourcc, 50.0, (250, 250))
 
+    def concat_state_latent(self, s, z_, n):
+        z_one_hot = np.zeros(n)
+        z_one_hot[z_] = 1
+        return np.concatenate([s, z_one_hot])
+
     def evaluate(self):
 
         for _ in range(self.max_episode):
+            z = 16
             s = self.env.reset()
+            s = self.concat_state_latent(s, z, 20)
             episode_reward = 0
             for _ in range(self.env._max_episode_steps):
                 action = self.agent.choose_action(s)
                 s_, r, done, _ = self.env.step(action)
+                s_ = self.concat_state_latent(s_, z, 20)
                 episode_reward += r
                 if done:
                     break
                 s = s_
-                # self.env.render(mode="human")
+                self.env.render()
                 # self.env.viewer.cam.type = const.CAMERA_FIXED
                 # self.env.viewer.cam.fixedcamid = 0
                 # time.sleep(0.03)

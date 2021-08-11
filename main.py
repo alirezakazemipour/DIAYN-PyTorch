@@ -3,13 +3,11 @@ from agent import SAC
 import time
 import psutil
 from torch.utils.tensorboard import SummaryWriter
-# from play import Play
+from play import Play
 import os
 import datetime
 import numpy as np
-import shutil
 
-# TODO Set Seed!!!
 np.random.seed(123)
 ENV_NAME = "Pendulum-v0"
 test_env = gym.make(ENV_NAME)
@@ -27,17 +25,17 @@ del test_env
 
 MAX_EPISODES = 1000
 memory_size = 1e+6
-batch_size = 256
+batch_size = 128
 gamma = 0.99
 alpha = 0.1
 lr = 3e-4
-num_skills = 5
+num_skills = 10
 
 p_z = np.full(num_skills, 1 / num_skills)
 if ENV_NAME == "Humanoid-v2":
     reward_scale = 20
 elif ENV_NAME == "Pendulum-v0":
-    reward_scale = 1
+    reward_scale = 5
 else:
     reward_scale = 5
 
@@ -50,7 +48,7 @@ def concat_state_latent(s, z_, n):
     return np.concatenate([s, z_one_hot])
 
 
-def log(episode, start_time, episode_reward, memory_length, z):
+def log(episode, start_time, episode_reward, memory_length, z, disc_loss):
 
     ram = psutil.virtual_memory()
 
@@ -65,7 +63,9 @@ def log(episode, start_time, episode_reward, memory_length, z):
         agent.save_weights()
 
     with SummaryWriter(ENV_NAME + "/logs/") as writer:
+        writer.add_histogram("Reward", episode_reward)
         writer.add_histogram(str(z), episode_reward)
+        writer.add_scalar("discriminator loss", disc_loss, episode)
 
 
 if __name__ == "__main__":
@@ -94,6 +94,7 @@ if TRAIN:
         state = env.reset()
         state = concat_state_latent(state, z, num_skills)
         episode_reward = 0
+        disc_losses = []
         done = 0
         start_time = time.time()
         while not done:
@@ -101,13 +102,14 @@ if TRAIN:
             next_state, reward, done, _ = env.step(action)
             next_state = concat_state_latent(next_state, z, num_skills)
             agent.store(state, z, done, action, next_state)
-            agent.train()
+            disc_loss = agent.train()
+            disc_losses.append(disc_loss)
             if episode % 100 == 0:
                 agent.save_weights()
             episode_reward += reward
             state = next_state
-        log(episode, start_time, episode_reward, len(agent.memory), z)
+        log(episode, start_time, episode_reward, len(agent.memory), z, sum(disc_losses) / len(disc_losses))
 
-# else:
-#     player = Play(env, agent)
-#     player.evaluate()
+else:
+    player = Play(env, agent)
+    player.evaluate()
