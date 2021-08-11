@@ -17,8 +17,6 @@ TRAIN = True
 
 if not os.path.exists(ENV_NAME):
     os.mkdir(ENV_NAME)
-else:
-    shutil.rmtree(ENV_NAME)
 
 
 n_states = test_env.observation_space.shape[0]
@@ -33,7 +31,7 @@ batch_size = 256
 gamma = 0.99
 alpha = 0.1
 lr = 3e-4
-num_skills = 8
+num_skills = 5
 
 p_z = np.full(num_skills, 1 / num_skills)
 if ENV_NAME == "Humanoid-v2":

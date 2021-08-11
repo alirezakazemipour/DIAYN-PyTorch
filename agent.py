@@ -98,7 +98,7 @@ class SAC:
             value = self.value_network(states)
             value_loss = self.value_loss(value, target_value)
 
-            discriminator_dist = self.discriminator(next_states)
+            discriminator_dist, logits = self.discriminator(next_states)
             z_one_hot = torch.zeros((self.batch_size, self.n_skills), device=self.device)
             z_one_hot[:, zs.long()] = 1
             p_z = torch.sum(z_one_hot * p_z, dim=-1, keepdim=True)
@@ -113,7 +113,7 @@ class SAC:
             q2_loss = self.q_value_loss(q2, target_q)
 
             policy_loss = (self.alpha * log_probs - q).mean()
-            discriminator_loss = self.cross_ent_loss(discriminator_dist.logits, zs.long().squeeze(-1))
+            discriminator_loss = self.cross_ent_loss(logits, zs.long().squeeze(-1))
 
             self.policy_opt.zero_grad()
             policy_loss.backward()
