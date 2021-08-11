@@ -148,7 +148,7 @@ class SAC:
         return action.detach().cpu().numpy()[0]
 
     @staticmethod
-    def soft_update_target_network(local_network, target_network, tau=0.005):
+    def soft_update_target_network(local_network, target_network, tau=0.01):
         for target_param, local_param in zip(target_network.parameters(), local_network.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
 

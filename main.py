@@ -29,15 +29,12 @@ batch_size = 128
 gamma = 0.99
 alpha = 0.1
 lr = 3e-4
-num_skills = 10
+num_skills = 5
 
 p_z = np.full(num_skills, 1 / num_skills)
-if ENV_NAME == "Humanoid-v2":
-    reward_scale = 20
-elif ENV_NAME == "Pendulum-v0":
-    reward_scale = 5
-else:
-    reward_scale = 5
+
+reward_scale = 1
+
 
 to_gb = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
 
@@ -48,7 +45,7 @@ def concat_state_latent(s, z_, n):
     return np.concatenate([s, z_one_hot])
 
 
-def log(episode, start_time, episode_reward, memory_length, z, disc_loss):
+def log(episode, start_time, episode_reward, memory_length, z, disc_loss, max_ep_reward):
 
     ram = psutil.virtual_memory()
 
@@ -66,6 +63,7 @@ def log(episode, start_time, episode_reward, memory_length, z, disc_loss):
         writer.add_histogram("Reward", episode_reward)
         writer.add_histogram(str(z), episode_reward)
         writer.add_scalar("discriminator loss", disc_loss, episode)
+        writer.add_scalar("maximum episode reward", max_ep_reward, episode)
 
 
 if __name__ == "__main__":
@@ -89,6 +87,7 @@ if __name__ == "__main__":
                 p_z=p_z)
 
 if TRAIN:
+    max_ep_rewrad = -np.inf
     for episode in range(1, MAX_EPISODES + 1):
         z = np.random.choice(num_skills, p=p_z)
         state = env.reset()
@@ -108,7 +107,9 @@ if TRAIN:
                 agent.save_weights()
             episode_reward += reward
             state = next_state
-        log(episode, start_time, episode_reward, len(agent.memory), z, sum(disc_losses) / len(disc_losses))
+        if episode_reward > max_ep_rewrad:
+            max_ep_rewrad = episode_reward
+        log(episode, start_time, episode_reward, len(agent.memory), z, sum(disc_losses) / len(disc_losses), max_ep_rewrad)
 
 else:
     player = Play(env, agent)
