@@ -32,7 +32,8 @@ class Discriminator(nn.Module, ABC):
     def forward(self, states):
         x = F.relu(self.hidden1(states))
         x = F.relu(self.hidden2(x))
-        return Categorical(logits=self.q(x))
+        probs = F.softmax(self.q(x), dim=-1)
+        return Categorical(probs)
 
 
 class ValueNetwork(nn.Module, ABC):

@@ -5,6 +5,7 @@ from replay_memory import Memory, Transition
 from torch import from_numpy
 from torch.optim.adam import Adam
 
+
 class SAC:
     def __init__(self, env_name,
                  n_states,
@@ -15,7 +16,8 @@ class SAC:
                  gamma, alpha,
                  lr,
                  action_bounds,
-                 reward_scale):
+                 reward_scale,
+                 p_z):
 
         self.env_name = env_name
         self.n_states = n_states
@@ -26,6 +28,7 @@ class SAC:
         self.gamma = gamma
         self.alpha = alpha
         self.lr = lr
+        self.p_z = p_z
         self.action_bounds = action_bounds
         self.reward_scale = reward_scale
         self.memory = Memory(memory_size=self.memory_size)
@@ -77,10 +80,11 @@ class SAC:
 
     def train(self):
         if len(self.memory) < self.batch_size:
-            return 0, 0, 0
+            return
         else:
             batch = self.memory.sample(self.batch_size)
             states, zs, dones, actions, next_states = self.unpack(batch)
+            p_z = torch.Tensor(self.p_z).to(self.device)
 
             # Calculating the value target
             reparam_actions, log_probs = self.policy_network.sample_or_likelihood(states)
@@ -92,8 +96,11 @@ class SAC:
             value = self.value_network(states)
             value_loss = self.value_loss(value, target_value)
 
-            discriminator_dist = self.discriminator(states)
-            rewards = discriminator_dist.log_prob(zs.squeeze(-1)).view(-1, 1) - torch.log(zs + 1e-6)
+            discriminator_dist = self.discriminator(next_states)
+            z_one_hot = torch.zeros((self.batch_size, self.n_skills), device=self.device)
+            z_one_hot[:, zs.long()] = 1
+            p_z = torch.sum(z_one_hot * p_z, dim=-1, keepdim=True)
+            rewards = discriminator_dist.log_prob(zs.squeeze(-1)).view(-1, 1) - torch.log(p_z + 1e-6)
             # Calculating the Q-Value target
             with torch.no_grad():
                 target_q = self.reward_scale * rewards + \
@@ -105,7 +112,7 @@ class SAC:
 
             policy_loss = (self.alpha * log_probs - q).mean()
             discriminator_loss = self.cross_ent_loss(discriminator_dist.logits, zs.long().squeeze(-1))
-            
+
             self.policy_opt.zero_grad()
             policy_loss.backward()
             self.policy_opt.step()
@@ -128,7 +135,7 @@ class SAC:
 
             self.soft_update_target_network(self.value_network, self.value_target_network)
 
-            return value_loss.item(), 0.5 * (q1_loss + q2_loss).item(), policy_loss.item()
+            return
 
     def choose_action(self, states):
         states = np.expand_dims(states, axis=0)
