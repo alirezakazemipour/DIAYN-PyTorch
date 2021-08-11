@@ -3,6 +3,7 @@ from collections import namedtuple
 
 Transition = namedtuple('Transition',
                         ('state', 'z', 'done', 'action', 'next_state'))
+random.seed(123)
 
 
 class Memory:

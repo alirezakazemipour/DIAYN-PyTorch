@@ -5,6 +5,8 @@ from replay_memory import Memory, Transition
 from torch import from_numpy
 from torch.optim.adam import Adam
 
+torch.manual_seed(123)
+
 
 class SAC:
     def __init__(self, env_name,

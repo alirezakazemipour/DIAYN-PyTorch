@@ -3,14 +3,14 @@ from agent import SAC
 import time
 import psutil
 from torch.utils.tensorboard import SummaryWriter
-from play import Play
+# from play import Play
 import os
 import datetime
 import numpy as np
 import shutil
 
 # TODO Set Seed!!!
-
+np.random.seed(123)
 ENV_NAME = "Pendulum-v0"
 test_env = gym.make(ENV_NAME)
 TRAIN = True
@@ -24,6 +24,8 @@ else:
 n_states = test_env.observation_space.shape[0]
 n_actions = test_env.action_space.shape[0]
 action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
+test_env.close()
+del test_env
 
 MAX_EPISODES = 1000
 memory_size = 1e+6
@@ -54,7 +56,7 @@ def log(episode, start_time, episode_reward, memory_length, z):
 
     ram = psutil.virtual_memory()
 
-    if episode % 10 == 0:
+    if episode % 20 == 0:
         print(f"EP:{episode}| "
               f"EP_r:{episode_reward:3.1f}| "
               f"Skill:{z}| "
@@ -74,6 +76,7 @@ if __name__ == "__main__":
           f"Action boundaries:{action_bounds}")
 
     env = gym.make(ENV_NAME)
+    env.seed(123)
     agent = SAC(env_name=ENV_NAME,
                 n_states=n_states,
                 n_actions=n_actions,
@@ -107,6 +110,6 @@ if TRAIN:
             state = next_state
         log(episode, start_time, episode_reward, len(agent.memory), z)
 
-else:
-    player = Play(env, agent)
-    player.evaluate()
+# else:
+#     player = Play(env, agent)
+#     player.evaluate()
