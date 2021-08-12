@@ -2,7 +2,7 @@ from abc import ABC
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch.distributions import Normal, Categorical
+from torch.distributions import Normal
 
 
 def init_weight(layer, initializer="he normal"):
@@ -13,7 +13,7 @@ def init_weight(layer, initializer="he normal"):
 
 
 class Discriminator(nn.Module, ABC):
-    def __init__(self, n_states, n_skills, n_hidden_filters=32):
+    def __init__(self, n_states, n_skills, n_hidden_filters=256):
         super(Discriminator, self).__init__()
         self.n_states = n_states
         self.n_skills = n_skills
@@ -37,7 +37,7 @@ class Discriminator(nn.Module, ABC):
 
 
 class ValueNetwork(nn.Module, ABC):
-    def __init__(self, n_states, n_hidden_filters=32):
+    def __init__(self, n_states, n_hidden_filters=256):
         super(ValueNetwork, self).__init__()
         self.n_states = n_states
         self.n_hidden_filters = n_hidden_filters
@@ -59,7 +59,7 @@ class ValueNetwork(nn.Module, ABC):
 
 
 class QvalueNetwork(nn.Module, ABC):
-    def __init__(self, n_states, n_actions, n_hidden_filters=32):
+    def __init__(self, n_states, n_actions, n_hidden_filters=256):
         super(QvalueNetwork, self).__init__()
         self.n_states = n_states
         self.n_hidden_filters = n_hidden_filters
@@ -83,7 +83,7 @@ class QvalueNetwork(nn.Module, ABC):
 
 
 class PolicyNetwork(nn.Module, ABC):
-    def __init__(self, n_states, n_actions, action_bounds, n_hidden_filters=32):
+    def __init__(self, n_states, n_actions, action_bounds, n_hidden_filters=256):
         super(PolicyNetwork, self).__init__()
         self.n_states = n_states
         self.n_hidden_filters = n_hidden_filters

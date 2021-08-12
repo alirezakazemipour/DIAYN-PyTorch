@@ -31,7 +31,7 @@ class SAC:
         self.gamma = gamma
         self.alpha = alpha
         self.lr = lr
-        self.p_z = p_z
+        self.p_z = np.tile(p_z, self.batch_size).reshape(self.batch_size, self.n_skills)
         self.action_bounds = action_bounds
         self.reward_scale = reward_scale
         self.memory = Memory(memory_size=self.memory_size)
@@ -49,8 +49,7 @@ class SAC:
         self.value_target_network = ValueNetwork(n_states=self.n_states + self.n_skills).to(self.device)
         self.value_target_network.load_state_dict(self.value_network.state_dict())
         self.value_target_network.eval()
-        self.discriminator = Discriminator(n_states=self.n_states + self.n_skills,
-                                           n_skills=self.n_skills).to(self.device)
+        self.discriminator = Discriminator(n_states=self.n_states, n_skills=self.n_skills).to(self.device)
 
         self.value_loss = torch.nn.MSELoss()
         self.q_value_loss = torch.nn.MSELoss()
@@ -83,11 +82,11 @@ class SAC:
 
     def train(self):
         if len(self.memory) < self.batch_size:
-            return 0
+            return 0, 0
         else:
             batch = self.memory.sample(self.batch_size)
             states, zs, dones, actions, next_states = self.unpack(batch)
-            p_z = torch.Tensor(self.p_z).to(self.device)
+            p_z = from_numpy(self.p_z).to(self.device)
 
             # Calculating the value target
             reparam_actions, log_probs = self.policy_network.sample_or_likelihood(states)
@@ -99,15 +98,14 @@ class SAC:
             value = self.value_network(states)
             value_loss = self.value_loss(value, target_value)
 
-            logits = self.discriminator(next_states)
-            z_one_hot = torch.zeros((self.batch_size, self.n_skills), device=self.device)
-            z_one_hot[:, zs.long()] = 1
-            p_z = torch.sum(z_one_hot * p_z, dim=-1, keepdim=True)
+            logits = self.discriminator(torch.split(next_states, [self.n_states, self.n_skills], dim=-1)[0])
+            p_z = p_z.gather(-1, zs.long())
             log_q_z_ns = softmax(logits, dim=-1).log()
-            rewards = log_q_z_ns.gather(-1, zs.long()) - torch.log(p_z + 1e-6)
+            rewards = log_q_z_ns.gather(-1, zs.long()).detach() - torch.log(p_z + 1e-6)
+
             # Calculating the Q-Value target
             with torch.no_grad():
-                target_q = self.reward_scale * rewards + \
+                target_q = self.reward_scale * rewards.float() + \
                            self.gamma * self.value_target_network(next_states) * (1 - dones)
             q1 = self.q_value_network1(states, actions)
             q2 = self.q_value_network2(states, actions)
@@ -139,7 +137,7 @@ class SAC:
 
             self.soft_update_target_network(self.value_network, self.value_target_network)
 
-            return discriminator_loss.item()
+            return discriminator_loss.item(), rewards.cpu().numpy().mean()
 
     def choose_action(self, states):
         states = np.expand_dims(states, axis=0)
@@ -148,7 +146,7 @@ class SAC:
         return action.detach().cpu().numpy()[0]
 
     @staticmethod
-    def soft_update_target_network(local_network, target_network, tau=0.01):
+    def soft_update_target_network(local_network, target_network, tau=0.005):
         for target_param, local_param in zip(target_network.parameters(), local_network.parameters()):
             target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
 
