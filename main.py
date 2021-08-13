@@ -9,9 +9,9 @@ import datetime
 import numpy as np
 
 np.random.seed(123)
-ENV_NAME = "Pendulum-v0"
+ENV_NAME = "MountainCarContinuous-v0"
 test_env = gym.make(ENV_NAME)
-TRAIN = False
+TRAIN = True
 
 if not os.path.exists(ENV_NAME):
     os.mkdir(ENV_NAME)
@@ -29,9 +29,9 @@ batch_size = 256
 gamma = 0.99
 alpha = 0.1
 lr = 3e-4
-num_skills = 10
+num_skills = 50
 p_z = np.full(num_skills, 1 / num_skills)
-reward_scale = 1
+reward_scale = 1 # TODO
 
 
 to_gb = lambda in_bytes: in_bytes / 1024 / 1024 / 1024

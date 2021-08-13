@@ -100,7 +100,7 @@ class SAC:
 
             logits = self.discriminator(torch.split(next_states, [self.n_states, self.n_skills], dim=-1)[0])
             p_z = p_z.gather(-1, zs.long())
-            log_q_z_ns = softmax(logits, dim=-1).log()
+            log_q_z_ns = (softmax(logits, dim=-1) + 1e-6).log()
             rewards = log_q_z_ns.gather(-1, zs.long()).detach() - torch.log(p_z + 1e-6)
 
             # Calculating the Q-Value target
