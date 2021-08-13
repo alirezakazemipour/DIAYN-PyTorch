@@ -9,9 +9,9 @@ import datetime
 import numpy as np
 
 np.random.seed(123)
-ENV_NAME = "MountainCarContinuous-v0"
+ENV_NAME = "BipedalWalker-v3"
 test_env = gym.make(ENV_NAME)
-TRAIN = True
+TRAIN = False
 
 if not os.path.exists(ENV_NAME):
     os.mkdir(ENV_NAME)

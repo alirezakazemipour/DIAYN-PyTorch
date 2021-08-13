@@ -28,14 +28,14 @@ class Play:
     def evaluate(self):
 
         for _ in range(self.max_episode):
-            for z in range(10):
+            for z in range(50):
                 s = self.env.reset()
-                s = self.concat_state_latent(s, z, 10)
+                s = self.concat_state_latent(s, z, 50)
                 episode_reward = 0
                 for _ in range(self.env._max_episode_steps):
                     action = self.agent.choose_action(s)
                     s_, r, done, _ = self.env.step(action)
-                    s_ = self.concat_state_latent(s_, z, 10)
+                    s_ = self.concat_state_latent(s_, z, 50)
                     episode_reward += r
                     if done:
                         break
@@ -43,7 +43,7 @@ class Play:
                     self.env.render()
                     # self.env.viewer.cam.type = const.CAMERA_FIXED
                     # self.env.viewer.cam.fixedcamid = 0
-                    time.sleep(0.03)
+                    # time.sleep(0.005)
                     # I = self.env.render(mode='rgb_array')
                     # I = cv2.cvtColor(I, cv2.COLOR_RGB2BGR)
                     # I = cv2.resize(I, (250, 250))
