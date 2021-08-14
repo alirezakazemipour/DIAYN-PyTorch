@@ -3,9 +3,9 @@ from torch import device
 import gym
 import time
 # from mujoco_py.generated import const
-# from mujoco_py import GlfwContext
+from mujoco_py import GlfwContext
 import cv2
-# GlfwContext(offscreen=True)
+GlfwContext(offscreen=True)
 import numpy as np
 
 
@@ -14,6 +14,7 @@ class Play:
         self.env = env
         self.max_episode = max_episode
         self.agent = agent
+        self.agent.set_to_cpu_mode()
         self.agent.load_weights()
         self.agent.set_to_eval_mode()
         self.device = device("cuda" if torch.cuda.is_available() else "cpu")

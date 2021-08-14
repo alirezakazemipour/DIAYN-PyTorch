@@ -132,4 +132,5 @@ dmypy.json
 *.avi
 *.png
 */logs/
+#*.pth
 events.*

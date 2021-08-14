@@ -7,9 +7,10 @@ from play import Play
 import os
 import datetime
 import numpy as np
+import mujoco_py
 
 np.random.seed(123)
-ENV_NAME = "BipedalWalker-v3"
+ENV_NAME = "Walker2d-v2"
 test_env = gym.make(ENV_NAME)
 TRAIN = False
 
@@ -31,7 +32,7 @@ alpha = 0.1
 lr = 3e-4
 num_skills = 50
 p_z = np.full(num_skills, 1 / num_skills)
-reward_scale = 1 # TODO
+reward_scale = 5 # TODO
 
 
 to_gb = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
@@ -47,7 +48,7 @@ def log(ep, start_time, episode_reward, memory_length, z, disc_loss, max_ep_rewa
 
     ram = psutil.virtual_memory()
 
-    if episode % 20 == 0:
+    if episode % 100 == 0:
         print(f"EP:{ep}| "
               f"EP_r:{episode_reward:3.1f}| "
               f"Skill:{z}| "

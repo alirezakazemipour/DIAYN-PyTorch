@@ -154,7 +154,12 @@ class SAC:
         torch.save(self.policy_network.state_dict(), self.env_name + "_weights.pth")
 
     def load_weights(self):
-        self.policy_network.load_state_dict(torch.load(self.env_name + "_weights.pth"))
+        self.policy_network.load_state_dict(torch.load(self.env_name + "_weights.pth", map_location=self.device))
 
     def set_to_eval_mode(self):
         self.policy_network.eval()
+
+    def set_to_cpu_mode(self):
+        self.device = torch.device("cpu")
+        self.policy_network.to(self.device)
+
