@@ -12,6 +12,7 @@ import numpy as np
 class Play:
     def __init__(self, env, agent, max_episode=1):
         self.env = env
+        self.env = gym.wrappers.Monitor(env, "./vid", video_callable=lambda episode_id: True, force=True)
         self.max_episode = max_episode
         self.agent = agent
         self.agent.set_to_cpu_mode()
@@ -29,19 +30,19 @@ class Play:
     def evaluate(self):
 
         for _ in range(self.max_episode):
-            for z in range(50):
+            for z in range(20):
                 s = self.env.reset()
-                s = self.concat_state_latent(s, z, 50)
+                s = self.concat_state_latent(s, z, 20)
                 episode_reward = 0
-                for _ in range(self.env._max_episode_steps):
+                for _ in range(self.env.spec.max_episode_steps):
                     action = self.agent.choose_action(s)
                     s_, r, done, _ = self.env.step(action)
-                    s_ = self.concat_state_latent(s_, z, 50)
+                    s_ = self.concat_state_latent(s_, z, 20)
                     episode_reward += r
                     if done:
                         break
                     s = s_
-                    self.env.render()
+                    # self.env.render()
                     # self.en.viewer.cam.type = const.CAMERA_FIXED
                     # self.env.viewer.cam.fixedcamid = 0
                     # time.sleep(0.005)

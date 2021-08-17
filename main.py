@@ -10,7 +10,7 @@ import numpy as np
 # import mujoco_py
 
 np.random.seed(123)
-ENV_NAME = "Pendulum-v0"
+ENV_NAME = "BipedalWalker-v3"
 test_env = gym.make(ENV_NAME)
 TRAIN = True
 
@@ -42,7 +42,7 @@ def concat_state_latent(s, z_, n):
     return np.concatenate([s, z_one_hot])
 
 
-def log(ep, start_time, episode_reward, memory_length, z, disc_loss, max_ep_reward, int_r):
+def log(ep, start_time, episode_reward, memory_length, z, disc_loss, max_ep_reward, logq):
 
     ram = psutil.virtual_memory()
 
@@ -61,7 +61,7 @@ def log(ep, start_time, episode_reward, memory_length, z, disc_loss, max_ep_rewa
         writer.add_histogram(str(z), episode_reward)
         writer.add_scalar("discriminator loss", disc_loss, episode)
         writer.add_scalar("maximum episode reward", max_ep_reward, ep)
-        writer.add_scalar("Intrinsic Reward", int_r, ep)
+        writer.add_scalar("logq(z|s)", logq, ep)
 
 
 if __name__ == "__main__":
@@ -92,7 +92,7 @@ if TRAIN:
         state = concat_state_latent(state, z, num_skills)
         episode_reward = 0
         disc_losses = []
-        int_rewards = []
+        logq_zses = []
         done = 0
         start_time = time.time()
         while not done:
@@ -100,16 +100,16 @@ if TRAIN:
             next_state, reward, done, _ = env.step(action)
             next_state = concat_state_latent(next_state, z, num_skills)
             agent.store(state, z, done, action, next_state)
-            disc_loss, int_reward = agent.train()
+            disc_loss, logq_zs = agent.train()
             disc_losses.append(disc_loss)
-            int_rewards.append(int_reward)
+            logq_zses.append(logq_zs)
             episode_reward += reward
             state = next_state
         if episode_reward > max_ep_rewrad:
             max_ep_rewrad = episode_reward
             print(f"Skill: {z} grabbed the max episode reward award! :D")
         log(episode, start_time, episode_reward, len(agent.memory), z,
-            sum(disc_losses) / len(disc_losses), max_ep_rewrad, sum(int_rewards) / len(int_rewards))
+            sum(disc_losses) / len(disc_losses), max_ep_rewrad, sum(logq_zses) / len(logq_zses))
 
 else:
     player = Play(env, agent)

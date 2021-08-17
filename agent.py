@@ -4,7 +4,7 @@ import torch
 from replay_memory import Memory, Transition
 from torch import from_numpy
 from torch.optim.adam import Adam
-from torch.nn.functional import softmax
+from torch.nn.functional import log_softmax
 
 torch.manual_seed(123)
 
@@ -100,8 +100,8 @@ class SAC:
 
             logits = self.discriminator(torch.split(next_states, [self.n_states, self.n_skills], dim=-1)[0])
             p_z = p_z.gather(-1, zs.long())
-            log_q_z_ns = (softmax(logits, dim=-1) + 1e-6).log()
-            rewards = log_q_z_ns.gather(-1, zs.long()).detach() - torch.log(p_z + 1e-6)
+            logq_z_ns = log_softmax(logits, dim=-1)
+            rewards = logq_z_ns.gather(-1, zs.long()).detach() - torch.log(p_z + 1e-6)
 
             # Calculating the Q-Value target
             with torch.no_grad():
@@ -114,6 +114,8 @@ class SAC:
 
             policy_loss = (self.alpha * log_probs - q).mean()
             logits = self.discriminator(torch.split(states, [self.n_states, self.n_skills], dim=-1)[0])
+            logq_z_s = log_softmax(logits, dim=-1)
+            logq_z_s.gather(-1, zs.long())
             discriminator_loss = self.cross_ent_loss(logits, zs.long().squeeze(-1))
 
             self.policy_opt.zero_grad()
@@ -138,7 +140,7 @@ class SAC:
 
             self.soft_update_target_network(self.value_network, self.value_target_network)
 
-            return discriminator_loss.item(), rewards.cpu().numpy().mean()
+            return discriminator_loss.item(), logq_z_s.mean().item()
 
     def choose_action(self, states):
         states = np.expand_dims(states, axis=0)

@@ -134,3 +134,4 @@ dmypy.json
 */logs/
 *.pth
 events.*
+*.mp4
