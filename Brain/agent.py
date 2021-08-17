@@ -38,8 +38,7 @@ class SACAgent:
 
         self.value_target_network = ValueNetwork(n_states=self.n_states + self.n_skills,
                                                  n_hidden_filters=self.config["n_hiddens"]).to(self.device)
-        self.value_target_network.load_state_dict(self.value_network.state_dict())
-        self.value_target_network.eval()
+        self.hard_update_target_network()
 
         self.discriminator = Discriminator(n_states=self.n_states, n_skills=self.n_skills,
                                            n_hidden_filters=self.config["n_hiddens"]).to(self.device)
@@ -52,6 +51,12 @@ class SACAgent:
         self.q_value2_opt = Adam(self.q_value_network2.parameters(), lr=self.config["lr"])
         self.policy_opt = Adam(self.policy_network.parameters(), lr=self.config["lr"])
         self.discriminator_opt = Adam(self.discriminator.parameters(), lr=self.config["lr"])
+
+    def choose_action(self, states):
+        states = np.expand_dims(states, axis=0)
+        states = from_numpy(states).float().to(self.device)
+        action, _ = self.policy_network.sample_or_likelihood(states)
+        return action.detach().cpu().numpy()[0]
 
     def store(self, state, z, done, action, next_state):
         state = from_numpy(state).float().to("cpu")
@@ -134,27 +139,25 @@ class SACAgent:
 
             return discriminator_loss.item(), logq_z_s.mean().item()
 
-    def choose_action(self, states):
-        states = np.expand_dims(states, axis=0)
-        states = from_numpy(states).float().to(self.device)
-        action, _ = self.policy_network.sample_or_likelihood(states)
-        return action.detach().cpu().numpy()[0]
-
     def soft_update_target_network(self, local_network, target_network):
         for target_param, local_param in zip(target_network.parameters(), local_network.parameters()):
             target_param.data.copy_(self.config["tau"] * local_param.data +
                                     (1 - self.config["tau"]) * target_param.data)
 
-    def save_weights(self):
-        torch.save(self.policy_network.state_dict(), self.env_name + "_weights.pth")
+    def hard_update_target_network(self):
+        self.value_target_network.load_state_dict(self.value_network.state_dict())
+        self.value_target_network.eval()
 
-    def load_weights(self):
-        self.policy_network.load_state_dict(torch.load(self.env_name + "_weights.pth", map_location=self.device))
+    def get_rng_states(self):
+        return torch.get_rng_state(), self.memory.get_rng_state()
 
-    def set_to_eval_mode(self):
+    def set_rng_states(self, torch_rng_state, random_rng_state):
+        torch.set_rng_state(torch_rng_state.to("cpu"))
+        self.memory.set_rng_state(random_rng_state)
+
+    def set_policy_net_to_eval_mode(self):
         self.policy_network.eval()
 
-    def set_to_cpu_mode(self):
+    def set_policy_net_to_cpu_mode(self):
         self.device = torch.device("cpu")
         self.policy_network.to(self.device)
-

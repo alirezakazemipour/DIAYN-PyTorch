@@ -135,3 +135,4 @@ dmypy.json
 *.pth
 events.*
 *.mp4
+*.json

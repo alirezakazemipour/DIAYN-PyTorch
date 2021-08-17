@@ -36,20 +36,20 @@ if __name__ == "__main__":
     if params["do_train"]:
 
         if not params["train_from_scratch"]:
-            episode = logger.load_weights()
+            episode, np_rng_state, torch_rng_state, random_rng_state = logger.load_weights()
             agent.hard_update_target_network()
-            agent.alpha = agent.log_alpha.exp()
             min_episode = episode
+            np.random.set_state(np_rng_state)
+            agent.set_rng_states(torch_rng_state, random_rng_state)
             print("Keep training from previous run.")
 
         else:
             min_episode = 0
-            print("Train from scratch.")
+            np.random.seed(params["seed"])
+            print("Training from scratch.")
 
-        np.random.seed(params["seed"]) # it is not completely true when we're not in training_from_scratch mode!
         logger.on()
         for episode in range(1 + min_episode, params["max_n_episodes"] + 1):
-
             z = np.random.choice(params["n_skills"], p=p_z)
             state = env.reset()
             state = concat_state_latent(state, z, params["n_skills"])
@@ -58,6 +58,7 @@ if __name__ == "__main__":
             logq_zses = []
             done = False
             step = 0
+
             while not done:
                 step += 1
                 action = agent.choose_action(state)
@@ -75,7 +76,9 @@ if __name__ == "__main__":
                        z,
                        sum(disc_losses) / len(disc_losses),
                        sum(logq_zses) / len(logq_zses),
-                       step)
+                       step,
+                       np.random.get_state(),
+                       *agent.get_rng_states())
 
     else:
         player = Play(env, agent)

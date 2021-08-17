@@ -21,3 +21,11 @@ class Memory:
 
     def __len__(self):
         return len(self.memory)
+
+    @staticmethod
+    def get_rng_state():
+        return random.getstate()
+
+    @staticmethod
+    def set_rng_state(random_rng_state):
+        random.setstate(random_rng_state)
