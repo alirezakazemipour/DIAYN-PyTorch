@@ -28,7 +28,8 @@ def get_params():
                       "max_n_episodes": 1000,
                       "gamma": 0.99,
                       "alpha": 0.1,
-                      "tau": 0.005
+                      "tau": 0.005,
+                      "n_hiddens": 300
                       }
     # endregion
     total_params = {**vars(parser_params), **default_params}

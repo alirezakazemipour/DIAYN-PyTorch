@@ -1,20 +1,9 @@
 import gym
-import time
-import psutil
 from torch.utils.tensorboard import SummaryWriter
 from Brain import SACAgent
-from Common import Play, get_params
-import os
-import datetime
+from Common import Play, Logger, get_params
 import numpy as np
 # import mujoco_py
-
-np.random.seed(123)
-
-if not os.path.exists(ENV_NAME):
-    os.mkdir(ENV_NAME)
-
-to_gb = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
 
 
 def concat_state_latent(s, z_, n):
@@ -25,16 +14,12 @@ def concat_state_latent(s, z_, n):
 
 def log(ep, start_time, episode_reward, memory_length, z, disc_loss, max_ep_reward, logq):
 
-    ram = psutil.virtual_memory()
 
     if episode % 100 == 0:
         print(f"EP:{ep}| "
               f"EP_r:{episode_reward:3.1f}| "
               f"Skill:{z}| "
-              f"Memory_length:{memory_length}| "
-              f"Duration:{time.time() - start_time:3.3f}| "
-              f"{to_gb(ram.used):.1f}/{to_gb(ram.total):.1f} GB RAM| "
-              f'Time:{datetime.datetime.now().strftime("%H:%M:%S")}')
+              f"Memory_length:{memory_length}| ")
         agent.save_weights()
 
     with SummaryWriter(ENV_NAME + "/logs/") as writer:
@@ -80,19 +65,20 @@ if __name__ == "__main__":
             min_episode = 0
             print("Train from scratch.")
 
-        for episode in range(1, MAX_EPISODES + 1):
-            z = np.random.choice(num_skills, p=p_z)
+        np.random.seed(params["seed"]) # it is not completely true when we're not in training_from_scratch mode!
+        for episode in range(min_episode, params["max_n_episodes"] + 1):
+            z = np.random.choice(params["n_skills"], p=p_z)
             state = env.reset()
-            state = concat_state_latent(state, z, num_skills)
+            state = concat_state_latent(state, z, params["n_skills"])
             episode_reward = 0
             disc_losses = []
             logq_zses = []
-            done = 0
-            start_time = time.time()
+            done = False
+            logger.on()
             while not done:
                 action = agent.choose_action(state)
                 next_state, reward, done, _ = env.step(action)
-                next_state = concat_state_latent(next_state, z, num_skills)
+                next_state = concat_state_latent(next_state, z, params["n_skills"])
                 agent.store(state, z, done, action, next_state)
                 disc_loss, logq_zs = agent.train()
                 disc_losses.append(disc_loss)
