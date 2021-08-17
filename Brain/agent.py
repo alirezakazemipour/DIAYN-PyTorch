@@ -1,7 +1,7 @@
 import numpy as np
-from model import PolicyNetwork, QvalueNetwork, ValueNetwork, Discriminator
+from .model import PolicyNetwork, QvalueNetwork, ValueNetwork, Discriminator
 import torch
-from replay_memory import Memory, Transition
+from .replay_memory import Memory, Transition
 from torch import from_numpy
 from torch.optim.adam import Adam
 from torch.nn.functional import log_softmax
@@ -9,7 +9,7 @@ from torch.nn.functional import log_softmax
 torch.manual_seed(123)
 
 
-class SAC:
+class SACAgent:
     def __init__(self, env_name,
                  n_states,
                  n_actions,
@@ -115,7 +115,7 @@ class SAC:
             policy_loss = (self.alpha * log_probs - q).mean()
             logits = self.discriminator(torch.split(states, [self.n_states, self.n_skills], dim=-1)[0])
             logq_z_s = log_softmax(logits, dim=-1)
-            logq_z_s.gather(-1, zs.long())
+            logq_z_s = logq_z_s.gather(-1, zs.long())
             discriminator_loss = self.cross_ent_loss(logits, zs.long().squeeze(-1))
 
             self.policy_opt.zero_grad()

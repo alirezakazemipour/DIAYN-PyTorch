@@ -1,9 +1,8 @@
 import gym
-from agent import SAC
 import time
 import psutil
 from torch.utils.tensorboard import SummaryWriter
-from play import Play
+from Common.play import Play
 import os
 import datetime
 import numpy as np
