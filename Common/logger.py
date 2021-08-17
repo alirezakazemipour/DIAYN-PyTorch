@@ -16,7 +16,6 @@ class Logger:
         self.log_dir = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         self.start_time = 0
         self.duration = 0
-        self.running_disc_loss = 0
         self.running_logq_zs = 0
         self.max_episode_reward = -np.inf
         self._turn_on = False
@@ -50,20 +49,14 @@ class Logger:
             return
         self._off()
 
-        episode, episode_reward, skill, disc_loss, logq_zs, step, *rng_states = args
+        episode, episode_reward, skill, logq_zs, step, *rng_states = args
 
         self.max_episode_reward = max(self.max_episode_reward, episode_reward)
 
-        # if disc_loss is None:
-        #     disc_loss = self.running_disc_loss
-        #     logq_zs = self.running_logq_zs
-
-        if self.running_disc_loss == 0:
-            self.running_disc_loss = disc_loss
+        if self.running_logq_zs == 0:
             self.running_logq_zs = logq_zs
         else:
-            self.running_disc_loss = 0.9 * self.running_disc_loss + 0.1 * disc_loss
-            self.running_logq_zs = 0.9 * self.running_logq_zs + 0.1 * logq_zs
+            self.running_logq_zs = 0.99 * self.running_logq_zs + 0.01 * logq_zs
 
         ram = psutil.virtual_memory()
         assert self.to_gb(ram.used) < 0.98 * self.to_gb(ram.total), "RAM usage exceeded permitted limit!"
@@ -84,7 +77,7 @@ class Logger:
                                      episode_reward,
                                      self.duration,
                                      len(self.agent.memory),
-                                     self.duration / (step / episode),
+                                     self.duration / step,
                                      self.to_gb(ram.used),
                                      self.to_gb(ram.total),
                                      datetime.datetime.now().strftime("%H:%M:%S"),
@@ -92,7 +85,6 @@ class Logger:
 
         with SummaryWriter("Logs/" + self.log_dir) as writer:
             writer.add_scalar("Max episode reward", self.max_episode_reward, episode)
-            writer.add_scalar("Running Discriminator Loss", self.running_disc_loss, episode)
             writer.add_scalar("Running logq(z|s)", self.running_logq_zs, episode)
             writer.add_histogram(str(skill), episode_reward)
             writer.add_histogram("Total Rewards", episode_reward)
@@ -104,7 +96,7 @@ class Logger:
                     "q_value_network1_state_dict": self.agent.q_value_network1.state_dict(),
                     "q_value_network2_state_dict": self.agent.q_value_network2.state_dict(),
                     "value_network_state_dict": self.agent.value_network.state_dict(),
-                    "discriminator_state_dict": self.agent.discriminator,
+                    "discriminator_state_dict": self.agent.discriminator.state_dict(),
                     "q_value1_opt_state_dict": self.agent.q_value1_opt.state_dict(),
                     "q_value2_opt_state_dict": self.agent.q_value2_opt.state_dict(),
                     "policy_opt_state_dict": self.agent.policy_opt.state_dict(),
@@ -113,7 +105,6 @@ class Logger:
                     "episode": episode,
                     "rng_states": rng_states,
                     "max_episode_reward": self.max_episode_reward,
-                    "running_disc_loss": self.running_disc_loss,
                     "running_logq_zs": self.running_logq_zs
                     },
                    "Models/" + self.log_dir + "/params.pth")
@@ -127,7 +118,7 @@ class Logger:
         self.agent.q_value_network1.load_state_dict(checkpoint["q_value_network1_state_dict"])
         self.agent.q_value_network2.load_state_dict(checkpoint["q_value_network2_state_dict"])
         self.agent.value_network.load_state_dict(checkpoint["value_network_state_dict"])
-        self.agent.discriminator = checkpoint["discriminator_state_dict"]
+        self.agent.discriminator.load_state_dict(checkpoint["discriminator_state_dict"])
         self.agent.q_value1_opt.load_state_dict(checkpoint["q_value1_opt_state_dict"])
         self.agent.q_value2_opt.load_state_dict(checkpoint["q_value2_opt_state_dict"])
         self.agent.policy_opt.load_state_dict(checkpoint["policy_opt_state_dict"])
@@ -135,7 +126,6 @@ class Logger:
         self.agent.discriminator_opt.load_state_dict(checkpoint["discriminator_opt_state_dict"])
 
         self.max_episode_reward = checkpoint["max_episode_reward"]
-        self.running_disc_loss = checkpoint["running_disc_loss"]
         self.running_logq_zs = checkpoint["running_logq_zs"]
 
-        return checkpoint["episode"], *checkpoint["rng_states"]
+        return checkpoint["episode"], self.running_logq_zs, *checkpoint["rng_states"]

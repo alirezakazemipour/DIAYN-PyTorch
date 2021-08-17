@@ -36,7 +36,7 @@ if __name__ == "__main__":
     if params["do_train"]:
 
         if not params["train_from_scratch"]:
-            episode, np_rng_state, torch_rng_state, random_rng_state = logger.load_weights()
+            episode, last_logq_zs, np_rng_state, torch_rng_state, random_rng_state = logger.load_weights()
             agent.hard_update_target_network()
             min_episode = episode
             np.random.set_state(np_rng_state)
@@ -45,6 +45,7 @@ if __name__ == "__main__":
 
         else:
             min_episode = 0
+            last_logq_zs = 0
             np.random.seed(params["seed"])
             print("Training from scratch.")
 
@@ -54,7 +55,6 @@ if __name__ == "__main__":
             state = env.reset()
             state = concat_state_latent(state, z, params["n_skills"])
             episode_reward = 0
-            disc_losses = []
             logq_zses = []
             done = False
             step = 0
@@ -65,16 +65,17 @@ if __name__ == "__main__":
                 next_state, reward, done, _ = env.step(action)
                 next_state = concat_state_latent(next_state, z, params["n_skills"])
                 agent.store(state, z, done, action, next_state)
-                disc_loss, logq_zs = agent.train()
-                disc_losses.append(disc_loss)
-                logq_zses.append(logq_zs)
+                logq_zs = agent.train()
+                if logq_zs is None:
+                    logq_zses.append(last_logq_zs)
+                else:
+                    logq_zses.append(logq_zs)
                 episode_reward += reward
                 state = next_state
 
             logger.log(episode,
                        episode_reward,
                        z,
-                       sum(disc_losses) / len(disc_losses),
                        sum(logq_zses) / len(logq_zses),
                        step,
                        np.random.get_state(),

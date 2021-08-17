@@ -78,8 +78,8 @@ class SACAgent:
         return states, zs, dones, actions, next_states
 
     def train(self):
-        if len(self.memory) < self.batch_size:
-            return 0, 0
+        if len(self.memory) < self.batch_size * 10:
+            return None
         else:
             batch = self.memory.sample(self.batch_size)
             states, zs, dones, actions, next_states = self.unpack(batch)
@@ -111,8 +111,6 @@ class SACAgent:
 
             policy_loss = (self.config["alpha"] * log_probs - q).mean()
             logits = self.discriminator(torch.split(states, [self.n_states, self.n_skills], dim=-1)[0])
-            logq_z_s = log_softmax(logits, dim=-1)
-            logq_z_s = logq_z_s.gather(-1, zs.long())
             discriminator_loss = self.cross_ent_loss(logits, zs.long().squeeze(-1))
 
             self.policy_opt.zero_grad()
@@ -137,7 +135,7 @@ class SACAgent:
 
             self.soft_update_target_network(self.value_network, self.value_target_network)
 
-            return discriminator_loss.item(), logq_z_s.mean().item()
+            return -discriminator_loss.item()
 
     def soft_update_target_network(self, local_network, target_network):
         for target_param, local_param in zip(target_network.parameters(), local_network.parameters()):
