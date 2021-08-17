@@ -2,35 +2,17 @@ import gym
 import time
 import psutil
 from torch.utils.tensorboard import SummaryWriter
-from Common.play import Play
+from Brain import SACAgent
+from Common import Play, get_params
 import os
 import datetime
 import numpy as np
 # import mujoco_py
 
 np.random.seed(123)
-ENV_NAME = "BipedalWalker-v3"
-test_env = gym.make(ENV_NAME)
-TRAIN = True
 
 if not os.path.exists(ENV_NAME):
     os.mkdir(ENV_NAME)
-
-n_states = test_env.observation_space.shape[0]
-n_actions = test_env.action_space.shape[0]
-action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
-test_env.close()
-del test_env
-
-MAX_EPISODES = 1000
-memory_size = 1e+6
-batch_size = 256
-gamma = 0.99
-alpha = 0.1
-lr = 3e-4
-num_skills = 20
-p_z = np.full(num_skills, 1 / num_skills)
-reward_scale = 1  # TODO
 
 to_gb = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
 
@@ -64,52 +46,65 @@ def log(ep, start_time, episode_reward, memory_length, z, disc_loss, max_ep_rewa
 
 
 if __name__ == "__main__":
-    print(f"Number of states:{n_states}\n"
-          f"Number of actions:{n_actions}\n"
-          f"Action boundaries:{action_bounds}")
+    params = get_params()
 
-    env = gym.make(ENV_NAME)
-    env.seed(123)
-    agent = SAC(env_name=ENV_NAME,
-                n_states=n_states,
-                n_actions=n_actions,
-                n_skills=num_skills,
-                memory_size=memory_size,
-                batch_size=batch_size,
-                gamma=gamma,
-                alpha=alpha,
-                lr=lr,
-                action_bounds=action_bounds,
-                reward_scale=reward_scale,
-                p_z=p_z)
+    test_env = gym.make(params["env_name"])
+    n_states = test_env.observation_space.shape[0]
+    n_actions = test_env.action_space.shape[0]
+    action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
 
-if TRAIN:
-    max_ep_rewrad = -np.inf
-    for episode in range(1, MAX_EPISODES + 1):
-        z = np.random.choice(num_skills, p=p_z)
-        state = env.reset()
-        state = concat_state_latent(state, z, num_skills)
-        episode_reward = 0
-        disc_losses = []
-        logq_zses = []
-        done = 0
-        start_time = time.time()
-        while not done:
-            action = agent.choose_action(state)
-            next_state, reward, done, _ = env.step(action)
-            next_state = concat_state_latent(next_state, z, num_skills)
-            agent.store(state, z, done, action, next_state)
-            disc_loss, logq_zs = agent.train()
-            disc_losses.append(disc_loss)
-            logq_zses.append(logq_zs)
-            episode_reward += reward
-            state = next_state
-        if episode_reward > max_ep_rewrad:
-            max_ep_rewrad = episode_reward
-            print(f"Skill: {z} grabbed the max episode reward award! :D")
-        log(episode, start_time, episode_reward, len(agent.memory), z,
-            sum(disc_losses) / len(disc_losses), max_ep_rewrad, sum(logq_zses) / len(logq_zses))
+    params.update({"n_states": n_states,
+                   "n_actions": n_actions,
+                   "action_bounds": action_bounds})
+    print("params:", params)
+    test_env.close()
+    del test_env, n_states, n_actions, action_bounds
 
-else:
-    player = Play(env, agent)
-    player.evaluate()
+    env = gym.make(params["env_name"])
+    env.seed(params["seed"])
+
+    p_z = np.full(params["n_skills"], 1 / params["n_skills"])
+    agent = SACAgent(p_z=p_z, **params)
+    logger = Logger(agent, **params)
+
+    if params["do_train"]:
+
+        if not params["train_from_scratch"]:
+            episode = logger.load_weights()
+            agent.hard_update_target_network()
+            agent.alpha = agent.log_alpha.exp()
+            min_episode = episode
+            print("Keep training from previous run.")
+
+        else:
+            min_episode = 0
+            print("Train from scratch.")
+
+        for episode in range(1, MAX_EPISODES + 1):
+            z = np.random.choice(num_skills, p=p_z)
+            state = env.reset()
+            state = concat_state_latent(state, z, num_skills)
+            episode_reward = 0
+            disc_losses = []
+            logq_zses = []
+            done = 0
+            start_time = time.time()
+            while not done:
+                action = agent.choose_action(state)
+                next_state, reward, done, _ = env.step(action)
+                next_state = concat_state_latent(next_state, z, num_skills)
+                agent.store(state, z, done, action, next_state)
+                disc_loss, logq_zs = agent.train()
+                disc_losses.append(disc_loss)
+                logq_zses.append(logq_zs)
+                episode_reward += reward
+                state = next_state
+            if episode_reward > max_ep_rewrad:
+                max_ep_rewrad = episode_reward
+                print(f"Skill: {z} grabbed the max episode reward award! :D")
+            log(episode, start_time, episode_reward, len(agent.memory), z,
+                sum(disc_losses) / len(disc_losses), max_ep_rewrad, sum(logq_zses) / len(logq_zses))
+
+    else:
+        player = Play(env, agent)
+        player.evaluate()

@@ -10,17 +10,9 @@ torch.manual_seed(123)
 
 
 class SACAgent:
-    def __init__(self, env_name,
-                 n_states,
-                 n_actions,
-                 n_skills,
-                 memory_size,
-                 batch_size,
-                 gamma, alpha,
-                 lr,
-                 action_bounds,
-                 reward_scale,
-                 p_z):
+    def __init__(self,
+                 p_z,
+                 **config):
 
         self.env_name = env_name
         self.n_states = n_states
@@ -148,10 +140,10 @@ class SACAgent:
         action, _ = self.policy_network.sample_or_likelihood(states)
         return action.detach().cpu().numpy()[0]
 
-    @staticmethod
-    def soft_update_target_network(local_network, target_network, tau=0.005):
+    def soft_update_target_network(self, local_network, target_network):
         for target_param, local_param in zip(target_network.parameters(), local_network.parameters()):
-            target_param.data.copy_(tau * local_param.data + (1 - tau) * target_param.data)
+            target_param.data.copy_(self.config["tau"] * local_param.data +
+                                    (1 - self.config["tau"]) * target_param.data)
 
     def save_weights(self):
         torch.save(self.policy_network.state_dict(), self.env_name + "_weights.pth")
