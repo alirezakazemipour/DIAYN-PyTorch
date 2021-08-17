@@ -17,13 +17,13 @@ class Logger:
         self.start_time = 0
         self.duration = 0
         self.running_reward = 0
-        self.running_alpha_loss = 0
-        self.running_q_loss = 0
-        self.running_policy_loss = 0
+        self.running_disc_loss = 0
+        self.running_logq_zs = 0
         self.max_episode_reward = -np.inf
         self.moving_avg_window = 10
         self.moving_weights = np.repeat(1.0, self.moving_avg_window) / self.moving_avg_window
         self.last_10_ep_rewards = deque(maxlen=10)
+        self._turn_on = False
 
         self.to_gb = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
         if self.config["do_train"] and self.config["train_from_scratch"]:
@@ -43,25 +43,28 @@ class Logger:
 
     def on(self):
         self.start_time = time.time()
+        self._turn_on = True
 
     def _off(self):
         self.duration = time.time() - self.start_time
 
     def log(self, *args):
+        if not self._turn_on:
+            print("First you should turn the logger on once, via on() method to be able to log parameters.")
+            return
         self._off()
 
-        episode, episode_reward, alpha_loss, q_loss, policy_loss, step = args
+        episode, episode_reward, skill, disc_loss, logq_zs, step = args
 
         self.max_episode_reward = max(self.max_episode_reward, episode_reward)
 
         if self.running_reward == 0:
             self.running_reward = episode_reward
-            self.running_alpha_loss = alpha_loss
-            self.running_q_loss = q_loss
+            self.running_disc_loss = disc_loss
+            self.running_logq_zs = logq_zs
         else:
-            self.running_alpha_loss = 0.99 * self.running_alpha_loss + 0.01 * alpha_loss
-            self.running_q_loss = 0.99 * self.running_q_loss + 0.01 * q_loss
-            self.running_policy_loss = 0.99 * self.running_policy_loss + 0.01 * policy_loss
+            self.running_disc_loss = 0.9 * self.running_disc_loss + 0.1 * disc_loss
+            self.running_logq_zs = 0.9 * self.running_logq_zs + 0.1 * logq_zs
             self.running_reward = 0.99 * self.running_reward + 0.01 * episode_reward
 
         self.last_10_ep_rewards.append(int(episode_reward))
@@ -71,50 +74,43 @@ class Logger:
             last_10_ep_rewards = 0  # It is not correct but does not matter.
 
         memory = psutil.virtual_memory()
-        assert self.to_gb(memory.used) < 0.98 * self.to_gb(memory.total)
+        assert self.to_gb(memory.used) < 0.98 * self.to_gb(memory.total), "RAM usage exceeded permitted limit!"
 
         if episode % (self.config["interval"] // 3):
-            self.save_weights(episode)
+            self._save_weights(episode)
 
         if episode % self.config["interval"] == 0:
             print("EP:{}| "
-                  "EP_Reward:{:.2f}| "
-                  "EP_Running_Reward:{:.3f}| "
-                  "Alpha_Loss:{:.3f}| "
-                  "Q-Loss:{:.3f}| "
-                  "Policy_Loss:{:.3f}| "
-                  "EP_Duration:{:.3f}| "
-                  "Alpha:{:.3f}| "
+                  "Skill:{}| "
+                  "EP_Reward:{:.1f}| "
+                  "EP_Running_Reward:{:.1f}| "
+                  "EP_Duration:{:.2f}| "
                   "Memory_Length:{}| "
                   "Mean_steps_time:{:.3f}| "
                   "{:.1f}/{:.1f} GB RAM| "
-                  "Time:{}| "
-                  "Step:{}".format(episode,
-                                   episode_reward,
-                                   self.running_reward,
-                                   self.running_alpha_loss,
-                                   self.running_q_loss,
-                                   self.running_policy_loss,
-                                   self.duration,
-                                   self.agent.alpha.item(),
-                                   len(self.agent.memory),
-                                   self.duration / (step / episode),
-                                   self.to_gb(memory.used),
-                                   self.to_gb(memory.total),
-                                   datetime.datetime.now().strftime("%H:%M:%S"),
-                                   step
-                                   ))
+                  "Time:{}| ".format(episode,
+                                     skill,
+                                     episode_reward,
+                                     self.running_reward,
+                                     self.duration,
+                                     len(self.agent.memory),
+                                     self.duration / (step / episode),
+                                     self.to_gb(memory.used),
+                                     self.to_gb(memory.total),
+                                     datetime.datetime.now().strftime("%H:%M:%S"),
+                                     ))
 
         with SummaryWriter("Logs/" + self.log_dir) as writer:
             writer.add_scalar("Episode running reward", self.running_reward, episode)
             writer.add_scalar("Max episode reward", self.max_episode_reward, episode)
             writer.add_scalar("Moving average reward of the last 10 episodes", last_10_ep_rewards, episode)
-            writer.add_scalar("Alpha Loss", alpha_loss, episode)
-            writer.add_scalar("Q-Loss", q_loss, episode)
-            writer.add_scalar("Policy Loss", policy_loss, episode)
-            writer.add_scalar("Alpha", self.agent.alpha.item(), episode)
+            writer.add_scalar("Running Discriminator Loss", self.running_disc_loss, episode)
+            writer.add_scalar("Running logq(z|s)", self.running_logq_zs, episode)
+            writer.add_histogram(str(skill), episode_reward, episode)
+            
+        self.on()
 
-    def save_weights(self, episode):
+    def _save_weights(self, episode):
         torch.save({"policy_network_state_dict": self.agent.policy_network.state_dict(),
                     "q_value_network1_state_dict": self.agent.q_value_network1.state_dict(),
                     "q_value_network2_state_dict": self.agent.q_value_network2.state_dict(),

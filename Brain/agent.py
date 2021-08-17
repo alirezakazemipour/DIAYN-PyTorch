@@ -6,8 +6,6 @@ from torch import from_numpy
 from torch.optim.adam import Adam
 from torch.nn.functional import log_softmax
 
-torch.manual_seed(123)
-
 
 class SACAgent:
     def __init__(self,
@@ -21,6 +19,7 @@ class SACAgent:
         self.memory = Memory(self.config["mem_size"], self.config["seed"])
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
+        torch.manual_seed(self.config["seed"])
         self.policy_network = PolicyNetwork(n_states=self.n_states + self.n_skills,
                                             n_actions=self.config["n_actions"],
                                             action_bounds=self.config["action_bounds"],
