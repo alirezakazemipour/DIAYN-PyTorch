@@ -113,6 +113,7 @@ class SAC:
             q2_loss = self.q_value_loss(q2, target_q)
 
             policy_loss = (self.alpha * log_probs - q).mean()
+            logits = self.discriminator(torch.split(states, [self.n_states, self.n_skills], dim=-1)[0])
             discriminator_loss = self.cross_ent_loss(logits, zs.long().squeeze(-1))
 
             self.policy_opt.zero_grad()

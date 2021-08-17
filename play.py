@@ -3,9 +3,9 @@ from torch import device
 import gym
 import time
 # from mujoco_py.generated import const
-from mujoco_py import GlfwContext
+# from mujoco_py import GlfwContext
 import cv2
-GlfwContext(offscreen=True)
+# GlfwContext(offscreen=True)
 import numpy as np
 
 
@@ -19,7 +19,7 @@ class Play:
         self.agent.set_to_eval_mode()
         self.device = device("cuda" if torch.cuda.is_available() else "cpu")
         self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        self.VideoWriter = cv2.VideoWriter("Humanoid" + ".avi", self.fourcc, 50.0, (250, 250))
+        # self.VideoWriter = cv2.VideoWriter("Humanoid" + ".avi", self.fourcc, 50.0, (250, 250))
 
     def concat_state_latent(self, s, z_, n):
         z_one_hot = np.zeros(n)
@@ -42,7 +42,7 @@ class Play:
                         break
                     s = s_
                     self.env.render()
-                    # self.env.viewer.cam.type = const.CAMERA_FIXED
+                    # self.en.viewer.cam.type = const.CAMERA_FIXED
                     # self.env.viewer.cam.fixedcamid = 0
                     # time.sleep(0.005)
                     # I = self.env.render(mode='rgb_array')

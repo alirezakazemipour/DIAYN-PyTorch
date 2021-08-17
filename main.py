@@ -7,16 +7,15 @@ from play import Play
 import os
 import datetime
 import numpy as np
-import mujoco_py
+# import mujoco_py
 
 np.random.seed(123)
-ENV_NAME = "Walker2d-v2"
+ENV_NAME = "Pendulum-v0"
 test_env = gym.make(ENV_NAME)
-TRAIN = False
+TRAIN = True
 
 if not os.path.exists(ENV_NAME):
     os.mkdir(ENV_NAME)
-
 
 n_states = test_env.observation_space.shape[0]
 n_actions = test_env.action_space.shape[0]
@@ -30,10 +29,9 @@ batch_size = 256
 gamma = 0.99
 alpha = 0.1
 lr = 3e-4
-num_skills = 50
+num_skills = 20
 p_z = np.full(num_skills, 1 / num_skills)
-reward_scale = 5 # TODO
-
+reward_scale = 1  # TODO
 
 to_gb = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
 
