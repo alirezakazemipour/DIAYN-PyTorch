@@ -56,11 +56,10 @@ if __name__ == "__main__":
             state = concat_state_latent(state, z, params["n_skills"])
             episode_reward = 0
             logq_zses = []
-            done = False
-            step = 0
 
-            while not done:
-                step += 1
+            max_n_steps = min(params["max_episode_len"], env.spec.max_episode_steps)
+            for step in range(1, 1 + max_n_steps):
+
                 action = agent.choose_action(state)
                 next_state, reward, done, _ = env.step(action)
                 next_state = concat_state_latent(next_state, z, params["n_skills"])
@@ -72,6 +71,8 @@ if __name__ == "__main__":
                     logq_zses.append(logq_zs)
                 episode_reward += reward
                 state = next_state
+                if done:
+                    break
 
             logger.log(episode,
                        episode_reward,
