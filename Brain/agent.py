@@ -60,7 +60,7 @@ class SACAgent:
 
     def store(self, state, z, done, action, next_state):
         state = from_numpy(state).float().to("cpu")
-        z = torch.ByteTensor([z]).to("cpu")
+        z = torch.LongTensor([z]).to("cpu")
         done = torch.BoolTensor([done]).to("cpu")
         action = torch.Tensor([action]).to("cpu")
         next_state = from_numpy(next_state).float().to("cpu")

@@ -2,7 +2,7 @@ import gym
 from Brain import SACAgent
 from Common import Play, Logger, get_params
 import numpy as np
-# import mujoco_py
+import mujoco_py
 
 
 def concat_state_latent(s, z_, n):
@@ -82,5 +82,6 @@ if __name__ == "__main__":
                        *agent.get_rng_states())
 
     else:
-        player = Play(env, agent)
+        logger.load_weights()
+        player = Play(env, agent, n_skills=params["n_skills"])
         player.evaluate()
