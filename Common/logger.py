@@ -26,9 +26,9 @@ class Logger:
 
     @staticmethod
     def _create_wights_folder(dir):
-        if not os.path.exists("Models"):
-            os.mkdir("Models")
-        os.mkdir("Models/" + dir)
+        if not os.path.exists("Checkpoints"):
+            os.mkdir("Checkpoints")
+        os.mkdir("Checkpoints/" + dir)
 
     def _log_params(self):
         with SummaryWriter("Logs/" + self.log_dir) as writer:
@@ -104,12 +104,13 @@ class Logger:
                     "episode": episode,
                     "rng_states": rng_states,
                     "max_episode_reward": self.max_episode_reward,
-                    "running_logq_zs": self.running_logq_zs
+                    "running_logq_zs": self.running_logq_zs,
+                    "memory": self.agent.memory
                     },
-                   "Models/" + self.log_dir + "/params.pth")
+                   "Checkpoints/" + self.log_dir + "/params.pth")
 
     def load_weights(self):
-        model_dir = glob.glob("Models/*")
+        model_dir = glob.glob("Checkpoints/*")
         model_dir.sort()
         checkpoint = torch.load(model_dir[-1] + "/params.pth", map_location=self.agent.device)
         self.log_dir = model_dir[-1].split(os.sep)[-1]
@@ -123,6 +124,7 @@ class Logger:
         self.agent.policy_opt.load_state_dict(checkpoint["policy_opt_state_dict"])
         self.agent.value_opt.load_state_dict(checkpoint["value_opt_state_dict"])
         self.agent.discriminator_opt.load_state_dict(checkpoint["discriminator_opt_state_dict"])
+        self.agent.memory = checkpoint["memory"]
 
         self.max_episode_reward = checkpoint["max_episode_reward"]
         self.running_logq_zs = checkpoint["running_logq_zs"]
