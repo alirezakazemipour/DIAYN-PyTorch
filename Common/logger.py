@@ -109,7 +109,7 @@ class Logger:
                     # 1 million transitions weighs 1 GB but pickle can
                     # only work with objects less than 150 MB so, Let's just store half of items that weighs roughly 150
                     # at the worst case scenario.
-                    "memory_buffer": self.agent.memory.buffer[len(self.agent.memory) // 6:]
+                    "memory_buffer": self.agent.memory.buffer[5 * len(self.agent.memory) // 6:]
                     },
                    "Checkpoints/" + self.log_dir + "/params.pth")
 
