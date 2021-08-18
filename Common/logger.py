@@ -55,7 +55,7 @@ class Logger:
         if self.running_logq_zs == 0:
             self.running_logq_zs = logq_zs
         else:
-            self.running_logq_zs = 0.9 * self.running_logq_zs + 0.1 * logq_zs
+            self.running_logq_zs = 0.99 * self.running_logq_zs + 0.01 * logq_zs
 
         ram = psutil.virtual_memory()
         assert self.to_gb(ram.used) < 0.98 * self.to_gb(ram.total), "RAM usage exceeded permitted limit!"
@@ -105,14 +105,18 @@ class Logger:
                     "rng_states": rng_states,
                     "max_episode_reward": self.max_episode_reward,
                     "running_logq_zs": self.running_logq_zs,
-                    "memory": self.agent.memory
+                    # each object in the memory allocates at most 1 KB bytes (like in Humanoid env) so,
+                    # 1 million transitions weighs 1 GB but pickle can
+                    # only work with objects less than 150 MB so, Let's just store half of items that weighs roughly 150
+                    # at the worst case scenario.
+                    "memory_buffer": self.agent.memory.buffer[len(self.agent.memory) // 6:]
                     },
                    "Checkpoints/" + self.log_dir + "/params.pth")
 
     def load_weights(self):
         model_dir = glob.glob("Checkpoints/*")
         model_dir.sort()
-        checkpoint = torch.load(model_dir[-1] + "/params.pth", map_location=self.agent.device)
+        checkpoint = torch.load(model_dir[-1] + "/params.pth")
         self.log_dir = model_dir[-1].split(os.sep)[-1]
         self.agent.policy_network.load_state_dict(checkpoint["policy_network_state_dict"])
         self.agent.q_value_network1.load_state_dict(checkpoint["q_value_network1_state_dict"])
@@ -124,7 +128,7 @@ class Logger:
         self.agent.policy_opt.load_state_dict(checkpoint["policy_opt_state_dict"])
         self.agent.value_opt.load_state_dict(checkpoint["value_opt_state_dict"])
         self.agent.discriminator_opt.load_state_dict(checkpoint["discriminator_opt_state_dict"])
-        self.agent.memory = checkpoint["memory"]
+        self.agent.memory.buffer = checkpoint["memory_buffer"]
 
         self.max_episode_reward = checkpoint["max_episode_reward"]
         self.running_logq_zs = checkpoint["running_logq_zs"]

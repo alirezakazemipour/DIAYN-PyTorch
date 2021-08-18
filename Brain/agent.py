@@ -1,7 +1,7 @@
 import numpy as np
 from .model import PolicyNetwork, QvalueNetwork, ValueNetwork, Discriminator
 import torch
-from .replay_memory import Memory
+from .replay_memory import Memory, Transition
 from torch import from_numpy
 from torch.optim.adam import Adam
 from torch.nn.functional import log_softmax
@@ -60,14 +60,14 @@ class SACAgent:
 
     def store(self, state, z, done, action, next_state):
         state = from_numpy(state).float().to("cpu")
-        z = torch.Tensor([z]).to("cpu")
-        done = torch.Tensor([done]).to("cpu")
+        z = torch.ByteTensor([z]).to("cpu")
+        done = torch.BoolTensor([done]).to("cpu")
         action = torch.Tensor([action]).to("cpu")
         next_state = from_numpy(next_state).float().to("cpu")
         self.memory.add(state, z, done, action, next_state)
 
     def unpack(self, batch):
-        batch = self.memory.Transition(*zip(*batch))
+        batch = Transition(*zip(*batch))
 
         states = torch.cat(batch.state).view(self.batch_size, self.n_states + self.n_skills).to(self.device)
         zs = torch.cat(batch.z).view(self.batch_size, 1).to(self.device)
@@ -96,14 +96,14 @@ class SACAgent:
             value_loss = self.mse_loss(value, target_value)
 
             logits = self.discriminator(torch.split(next_states, [self.n_states, self.n_skills], dim=-1)[0])
-            p_z = p_z.gather(-1, zs.long())
+            p_z = p_z.gather(-1, zs)
             logq_z_ns = log_softmax(logits, dim=-1)
-            rewards = logq_z_ns.gather(-1, zs.long()).detach() - torch.log(p_z + 1e-6)
+            rewards = logq_z_ns.gather(-1, zs).detach() - torch.log(p_z + 1e-6)
 
             # Calculating the Q-Value target
             with torch.no_grad():
                 target_q = self.config["reward_scale"] * rewards.float() + \
-                           self.config["gamma"] * self.value_target_network(next_states) * (1 - dones)
+                           self.config["gamma"] * self.value_target_network(next_states) * (~dones)
             q1 = self.q_value_network1(states, actions)
             q2 = self.q_value_network2(states, actions)
             q1_loss = self.mse_loss(q1, target_q)
@@ -111,7 +111,7 @@ class SACAgent:
 
             policy_loss = (self.config["alpha"] * log_probs - q).mean()
             logits = self.discriminator(torch.split(states, [self.n_states, self.n_skills], dim=-1)[0])
-            discriminator_loss = self.cross_ent_loss(logits, zs.long().squeeze(-1))
+            discriminator_loss = self.cross_ent_loss(logits, zs.squeeze(-1))
 
             self.policy_opt.zero_grad()
             policy_loss.backward()
