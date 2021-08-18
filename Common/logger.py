@@ -6,7 +6,6 @@ import torch
 import os
 import datetime
 import glob
-from collections import deque
 
 
 class Logger:
@@ -56,7 +55,7 @@ class Logger:
         if self.running_logq_zs == 0:
             self.running_logq_zs = logq_zs
         else:
-            self.running_logq_zs = 0.99 * self.running_logq_zs + 0.01 * logq_zs
+            self.running_logq_zs = 0.9 * self.running_logq_zs + 0.1 * logq_zs
 
         ram = psutil.virtual_memory()
         assert self.to_gb(ram.used) < 0.98 * self.to_gb(ram.total), "RAM usage exceeded permitted limit!"
