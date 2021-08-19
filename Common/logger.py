@@ -6,6 +6,8 @@ import torch
 import os
 import datetime
 import glob
+import bz2
+import pickle, pickletools
 
 
 class Logger:
@@ -109,9 +111,14 @@ class Logger:
                     # 1 million transitions weighs 1 GB but pickle can
                     # only work with objects less than 150 MB so, Let's just store half of items that weighs roughly 150
                     # at the worst case scenario.
-                    #"memory_buffer": self.agent.memory.buffer[5 * len(self.agent.memory) // 6:]
+                    # "memory_buffer": self.agent.memory.buffer[-self.config["batch_size"]:]
                     },
                    "Checkpoints/" + self.log_dir + "/params.pth")
+
+        with bz2.BZ2File("Checkpoints/" + self.log_dir + "/memory_buffer.pbz2", 'w') as f:
+            pickled = pickle.dumps(self.agent.memory.buffer)
+            optimized_pickled = pickletools.optimize(pickled)
+            f.write(optimized_pickled)
 
     def load_weights(self):
         model_dir = glob.glob("Checkpoints/*")
@@ -128,7 +135,11 @@ class Logger:
         self.agent.policy_opt.load_state_dict(checkpoint["policy_opt_state_dict"])
         self.agent.value_opt.load_state_dict(checkpoint["value_opt_state_dict"])
         self.agent.discriminator_opt.load_state_dict(checkpoint["discriminator_opt_state_dict"])
-        #self.agent.memory.buffer = checkpoint["memory_buffer"]
+        # self.agent.memory.buffer = checkpoint["memory_buffer"]
+
+        with bz2.BZ2File(model_dir[-1] + "/memory_buffer.pbz2", 'rb') as f:
+            p = pickle.Unpickler(f)
+            self.agent.memory.buffer = p.load()
 
         self.max_episode_reward = checkpoint["max_episode_reward"]
         self.running_logq_zs = checkpoint["running_logq_zs"]
