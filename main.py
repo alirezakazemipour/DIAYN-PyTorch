@@ -2,6 +2,7 @@ import gym
 from Brain import SACAgent
 from Common import Play, Logger, get_params
 import numpy as np
+from tqdm import tqdm
 import mujoco_py
 
 
@@ -27,7 +28,6 @@ if __name__ == "__main__":
     del test_env, n_states, n_actions, action_bounds
 
     env = gym.make(params["env_name"])
-    env.seed(params["seed"])
 
     p_z = np.full(params["n_skills"], 1 / params["n_skills"])
     agent = SACAgent(p_z=p_z, **params)
@@ -36,10 +36,13 @@ if __name__ == "__main__":
     if params["do_train"]:
 
         if not params["train_from_scratch"]:
-            episode, last_logq_zs, np_rng_state, torch_rng_state, random_rng_state = logger.load_weights()
+            episode, last_logq_zs, np_rng_state, *env_rng_states, torch_rng_state, random_rng_state = logger.load_weights()
             agent.hard_update_target_network()
             min_episode = episode
             np.random.set_state(np_rng_state)
+            env.np_random.set_state(env_rng_states[0])
+            env.observation_space.np_random.set_state(env_rng_states[1])
+            env.action_space.np_random.set_state(env_rng_states[2])
             agent.set_rng_states(torch_rng_state, random_rng_state)
             print("Keep training from previous run.")
 
@@ -47,10 +50,13 @@ if __name__ == "__main__":
             min_episode = 0
             last_logq_zs = 0
             np.random.seed(params["seed"])
+            env.seed(params["seed"])
+            env.observation_space.seed(params["seed"])
+            env.action_space.seed(params["seed"])
             print("Training from scratch.")
 
         logger.on()
-        for episode in range(1 + min_episode, params["max_n_episodes"] + 1):
+        for episode in tqdm(range(1 + min_episode, params["max_n_episodes"] + 1)):
             z = np.random.choice(params["n_skills"], p=p_z)
             state = env.reset()
             state = concat_state_latent(state, z, params["n_skills"])
@@ -80,7 +86,11 @@ if __name__ == "__main__":
                        sum(logq_zses) / len(logq_zses),
                        step,
                        np.random.get_state(),
-                       *agent.get_rng_states())
+                       env.np_random.get_state(),
+                       env.observation_space.np_random.get_state(),
+                       env.action_space.np_random.get_state(),
+                       *agent.get_rng_states(),
+                       )
 
     else:
         logger.load_weights()
