@@ -108,11 +108,6 @@ class Logger:
                     "rng_states": rng_states,
                     "max_episode_reward": self.max_episode_reward,
                     "running_logq_zs": self.running_logq_zs,
-                    # each object in the memory allocates at most 1 KB bytes (like in Humanoid env) so,
-                    # 1 million transitions weighs 1 GB but pickle can
-                    # only work with objects less than 150 MB so, Let's just store half of items that weighs roughly 150
-                    # at the worst case scenario.
-                    # "memory_buffer": self.agent.memory.buffer[-self.config["batch_size"]:]
                     },
                    "Checkpoints/" + self.log_dir + "/params.pth")
 
@@ -136,7 +131,6 @@ class Logger:
         self.agent.policy_opt.load_state_dict(checkpoint["policy_opt_state_dict"])
         self.agent.value_opt.load_state_dict(checkpoint["value_opt_state_dict"])
         self.agent.discriminator_opt.load_state_dict(checkpoint["discriminator_opt_state_dict"])
-        # self.agent.memory.buffer = checkpoint["memory_buffer"]
 
         with bz2.BZ2File(model_dir[-1] + "/memory_buffer.bz2", 'rb') as f:
             p = pickle.Unpickler(f)
@@ -145,4 +139,4 @@ class Logger:
         self.max_episode_reward = checkpoint["max_episode_reward"]
         self.running_logq_zs = checkpoint["running_logq_zs"]
 
-        return checkpoint["episode"], self.running_logq_zs, *checkpoint["rng_states"]
+        return checkpoint["episode"], self.running_logq_zs, checkpoint["rng_states"]

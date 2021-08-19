@@ -136,5 +136,4 @@ dmypy.json
 events.*
 *.mp4
 *.json
-*.pbz2
-*.gz
+*.bz2
