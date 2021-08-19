@@ -7,7 +7,8 @@ import os
 import datetime
 import glob
 import bz2
-import pickle, pickletools
+import pickle
+import pickletools
 
 
 class Logger:
@@ -115,7 +116,7 @@ class Logger:
                     },
                    "Checkpoints/" + self.log_dir + "/params.pth")
 
-        with bz2.BZ2File("Checkpoints/" + self.log_dir + "/memory_buffer.pbz2", 'w') as f:
+        with bz2.BZ2File("Checkpoints/" + self.log_dir + "/memory_buffer.bz2", 'w') as f:
             pickled = pickle.dumps(self.agent.memory.buffer)
             optimized_pickled = pickletools.optimize(pickled)
             f.write(optimized_pickled)
@@ -137,7 +138,7 @@ class Logger:
         self.agent.discriminator_opt.load_state_dict(checkpoint["discriminator_opt_state_dict"])
         # self.agent.memory.buffer = checkpoint["memory_buffer"]
 
-        with bz2.BZ2File(model_dir[-1] + "/memory_buffer.pbz2", 'rb') as f:
+        with bz2.BZ2File(model_dir[-1] + "/memory_buffer.bz2", 'rb') as f:
             p = pickle.Unpickler(f)
             self.agent.memory.buffer = p.load()
 
