@@ -6,7 +6,7 @@ import torch
 import os
 import datetime
 import glob
-import bz2
+import gzip
 import pickle
 import pickletools
 
@@ -107,11 +107,11 @@ class Logger:
                     "episode": episode,
                     "rng_states": rng_states,
                     "max_episode_reward": self.max_episode_reward,
-                    "running_logq_zs": self.running_logq_zs,
+                    "running_logq_zs": self.running_logq_zs
                     },
                    "Checkpoints/" + self.log_dir + "/params.pth")
 
-        with bz2.BZ2File("Checkpoints/" + self.log_dir + "/memory_buffer.bz2", 'w') as f:
+        with gzip.GzipFile("Checkpoints/" + self.log_dir + "/memory_buffer.gz", 'w') as f:
             pickled = pickle.dumps(self.agent.memory.buffer)
             optimized_pickled = pickletools.optimize(pickled)
             f.write(optimized_pickled)
@@ -132,7 +132,7 @@ class Logger:
         self.agent.value_opt.load_state_dict(checkpoint["value_opt_state_dict"])
         self.agent.discriminator_opt.load_state_dict(checkpoint["discriminator_opt_state_dict"])
 
-        with bz2.BZ2File(model_dir[-1] + "/memory_buffer.bz2", 'rb') as f:
+        with gzip.GzipFile(model_dir[-1] + "/memory_buffer.gz", 'rb') as f:
             p = pickle.Unpickler(f)
             self.agent.memory.buffer = p.load()
 

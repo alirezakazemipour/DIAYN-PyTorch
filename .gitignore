@@ -137,3 +137,4 @@ events.*
 *.mp4
 *.json
 *.bz2
+memory_buffer.gz

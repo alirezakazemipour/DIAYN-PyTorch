@@ -25,7 +25,7 @@ def get_params():
     # region default parameters
     default_params = {"lr": 3e-4,
                       "batch_size": 256,
-                      "max_n_episodes": 1000,
+                      "max_n_episodes": 5000,
                       "max_episode_len": 1000,
                       "gamma": 0.99,
                       "alpha": 0.1,
