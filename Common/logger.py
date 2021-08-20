@@ -6,9 +6,6 @@ import torch
 import os
 import datetime
 import glob
-import gzip
-import pickle
-import pickletools
 
 
 class Logger:
@@ -111,10 +108,6 @@ class Logger:
                     },
                    "Checkpoints/" + self.log_dir + "/params.pth")
 
-        with gzip.GzipFile("Checkpoints/" + self.log_dir + "/memory_buffer.gz", 'w') as f:
-            pickled = pickle.dumps(self.agent.memory.buffer)
-            optimized_pickled = pickletools.optimize(pickled)
-            f.write(optimized_pickled)
 
     def load_weights(self):
         model_dir = glob.glob("Checkpoints/*")
@@ -132,11 +125,7 @@ class Logger:
         self.agent.value_opt.load_state_dict(checkpoint["value_opt_state_dict"])
         self.agent.discriminator_opt.load_state_dict(checkpoint["discriminator_opt_state_dict"])
 
-        with gzip.GzipFile(model_dir[-1] + "/memory_buffer.gz", 'rb') as f:
-            p = pickle.Unpickler(f)
-            self.agent.memory.buffer = p.load()
-
         self.max_episode_reward = checkpoint["max_episode_reward"]
         self.running_logq_zs = checkpoint["running_logq_zs"]
 
-        return checkpoint["episode"], self.running_logq_zs, checkpoint["rng_states"]
+        return checkpoint["episode"], self.running_logq_zs, *checkpoint["rng_states"]
