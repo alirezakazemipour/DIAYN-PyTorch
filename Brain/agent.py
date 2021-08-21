@@ -60,7 +60,7 @@ class SACAgent:
 
     def store(self, state, z, done, action, next_state):
         state = from_numpy(state).float().to("cpu")
-        z = torch.LongTensor([z]).to("cpu")
+        z = torch.ByteTensor([z]).to("cpu")
         done = torch.BoolTensor([done]).to("cpu")
         action = torch.Tensor([action]).to("cpu")
         next_state = from_numpy(next_state).float().to("cpu")
@@ -70,7 +70,7 @@ class SACAgent:
         batch = Transition(*zip(*batch))
 
         states = torch.cat(batch.state).view(self.batch_size, self.n_states + self.n_skills).to(self.device)
-        zs = torch.cat(batch.z).view(self.batch_size, 1).to(self.device)
+        zs = torch.cat(batch.z).view(self.batch_size, 1).long().to(self.device)
         dones = torch.cat(batch.done).view(self.batch_size, 1).to(self.device)
         actions = torch.cat(batch.action).view(-1, self.config["n_actions"]).to(self.device)
         next_states = torch.cat(batch.next_state).view(self.batch_size, self.n_states + self.n_skills).to(self.device)

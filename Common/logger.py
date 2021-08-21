@@ -18,8 +18,8 @@ class Logger:
         self.running_logq_zs = 0
         self.max_episode_reward = -np.inf
         self._turn_on = False
-
         self.to_gb = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
+
         if self.config["do_train"] and self.config["train_from_scratch"]:
             self._create_wights_folder(self.log_dir)
             self._log_params()
@@ -64,14 +64,14 @@ class Logger:
             self._save_weights(episode, *rng_states)
 
         if episode % self.config["interval"] == 0:
-            print("EP:{}| "
-                  "Skill:{}| "
-                  "EP_Reward:{:.1f}| "
-                  "EP_Duration:{:.2f}| "
-                  "Memory_Length:{}| "
-                  "Mean_steps_time:{:.3f}| "
+            print("E: {}| "
+                  "Skill: {}| "
+                  "E_Reward: {:.1f}| "
+                  "EP_Duration: {:.2f}| "
+                  "Memory_Length: {}| "
+                  "Mean_steps_time: {:.3f}| "
                   "{:.1f}/{:.1f} GB RAM| "
-                  "Time:{}| ".format(episode,
+                  "Time: {} ".format(episode,
                                      skill,
                                      episode_reward,
                                      self.duration,
@@ -107,7 +107,6 @@ class Logger:
                     "running_logq_zs": self.running_logq_zs
                     },
                    "Checkpoints/" + self.log_dir + "/params.pth")
-
 
     def load_weights(self):
         model_dir = glob.glob("Checkpoints/*")
