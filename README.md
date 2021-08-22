@@ -19,7 +19,7 @@ The bigger r<sub>z</sub>(s, a) is, the more ambiguous skill _`z`_ is thus, the s
 
 Concurrently to learn r<sub>z</sub>(s, a), any conventional RL method can be utilized to learn a policy and DIAYN uses SAC.
 
-This repository is a PyTorch implementation of Diversity is All You Need and the SAC part of the code is based on [this repo](https://github.com/alirezakazemipour/SAC).
+**This repository is a PyTorch implementation of Diversity is All You Need and the SAC part of the code is based on [this repo](https://github.com/alirezakazemipour/SAC).**
 
 ## Results
 > x-axis in all of the corresponding plots in this section are counted by number episode.
