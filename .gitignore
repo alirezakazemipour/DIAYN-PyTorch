@@ -129,12 +129,3 @@ dmypy.json
 .pyre/
 
 .idea/
-*.avi
-*.png
-*/logs/
-*.pth
-events.*
-*.mp4
-*.json
-*.bz2
-memory_buffer.gz

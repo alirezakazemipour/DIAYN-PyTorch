@@ -12,7 +12,7 @@ class Logger:
     def __init__(self, agent, **config):
         self.config = config
         self.agent = agent
-        self.log_dir = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        self.log_dir = self.config["env_name"][:-3] + "/" + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         self.start_time = 0
         self.duration = 0
         self.running_logq_zs = 0
@@ -109,7 +109,7 @@ class Logger:
                    "Checkpoints/" + self.log_dir + "/params.pth")
 
     def load_weights(self):
-        model_dir = glob.glob("Checkpoints/*")
+        model_dir = glob.glob("Checkpoints/" + self.config["env_name"][:-3] + "/")
         model_dir.sort()
         checkpoint = torch.load(model_dir[-1] + "/params.pth")
         self.log_dir = model_dir[-1].split(os.sep)[-1]
