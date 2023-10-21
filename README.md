@@ -187,17 +187,3 @@ python3 main.py --mem_size=1000000 --env_name="Hopper-v3" --interval=100 --do_tr
 2. [@p-christ](https://github.com/p-christ) for [DIAYN.py](https://github.com/p-christ/Deep-Reinforcement-Learning-Algorithms-with-PyTorch/blob/master/agents/hierarchical_agents/DIAYN.py).
 3. [@johnlime](https://github.com/johnlime) for [RlkitExtension](https://github.com/johnlime/RlkitExtension).
 4. [@Dolokhow](https://github.com/Dolokhow) for [rl-algos-tf2 ](https://github.com/Dolokhow/rl-algos-tf2).
-
-## Citation
-
-Please use this bibtex if you want to cite this repository in your publications WHILE CONSIDERING [Acknowledgment](https://github.com/alirezakazemipour/DIAYN-PyTorch#acknowledgment) SECTION AS THE CURRENT REPO IS UNOFFICIAL AND HEAVILY INSPIRED BY THOSE WORKS:
-
-    @misc{DIAYN-PyTorch,
-        author = {Kazemipour, Alireza},
-        title = {Unoffical PyTorch Implementation of Diversity is All You Need},
-        year = {2021},
-        publisher = {GitHub},
-        journal = {GitHub repository},
-        howpublished = {\url{https://github.com/alirezakazemipour/DIAYN-PyTorch}},
-    }
-
